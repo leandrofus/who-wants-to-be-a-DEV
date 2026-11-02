@@ -1,0 +1,14 @@
+{
+  "port": 7777,
+  "repo": "",
+  "language": "TypeScript",
+  "extraTopics": ["git", "SQL", "software architecture", "Linux/shell"],
+  "questionLanguage": "en",
+  "difficulty": "intermediate",
+  "provider": "auto",
+  "claudeCliModel": "haiku",
+  "anthropicModel": "claude-haiku-5-5",
+  "ollamaModel": "llama3.2:3b",
+  "ollamaUrl": "http://localhost:11434",
+  "prefetch": 10
+}

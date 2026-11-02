@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Who Wants to Be a Dev?</title>
+<style>
+:root{--gold:#f2c14e;--gold2:#a77b1e;--navy:#050a3a;--navy2:#0b1a78;--org:#ff9a1f;--ok:#22c55e;--bad:#e5334b;--fg:#f4f6ff;--dim:#9fb0ff}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;color:var(--fg);font:clamp(15px,1.15vw,20px)/1.45 "Trebuchet MS","Segoe UI",system-ui,sans-serif;overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1a2bb0 0%,#0a1260 45%,#02041c 100%)}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;opacity:.85}
+#ui{position:fixed;inset:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(170px,16vw,260px);gap:2vw;padding:14px 2vw}
+#stage{display:flex;flex-direction:column;min-height:0;gap:12px}
+#bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pill{background:#050a3acc;border:1px solid var(--gold2);border-radius:999px;padding:5px 16px;font-size:.85em;color:var(--dim)}
+#agent.working{color:var(--gold);border-color:var(--gold)}#agent.idle{color:#7dffb0;border-color:#7dffb0}
+#agent.flash{animation:fl .6s 4}@keyframes fl{50%{background:#22c55e66}}
+.life{margin-left:auto;display:flex;gap:10px}
+.lf{background:radial-gradient(#1a2bb0,#050a3a);border:2px solid var(--gold);color:var(--gold);border-radius:50%;width:3.2em;height:2.4em;border-radius:50%/50%;font:inherit;font-weight:700;cursor:pointer}
+.lf.tema{width:auto;padding:0 1.1em;margin-left:auto}.life{margin-left:0!important}
+.lf:disabled{opacity:.3;cursor:default;text-decoration:line-through}
+#mid{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:6px}
+#mid>:first-child{margin-top:auto}#mid>*{flex-shrink:0}
+#ctx{color:var(--dim);font-size:.9em;border-left:3px solid var(--gold2);padding-left:12px}#ctx:empty{display:none}
+#cat{color:var(--gold);font-size:.75em;letter-spacing:.15em;text-transform:uppercase}
+pre{margin:0;padding:14px;background:#02041ccc;border:1px solid #2a3aa8;border-radius:10px;overflow:auto;font:.9em/1.45 ui-monospace,Menlo,Consolas,monospace;max-height:34vh}
+.hex{clip-path:polygon(2.5% 0,97.5% 0,100% 50%,97.5% 100%,2.5% 100%,0 50%);background:linear-gradient(var(--gold),var(--gold2));padding:3px}
+.hex>div{clip-path:polygon(2.5% 0,97.5% 0,100% 50%,97.5% 100%,2.5% 100%,0 50%);background:linear-gradient(#0b1a78,#050a3a);padding:.9em 3em;min-height:100%}
+#qt{font-size:1.35em;font-weight:600;text-align:center}
+#opts{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px}
+.opt{border:0;font:inherit;color:var(--fg);cursor:pointer;text-align:left;padding:0;background:none;transition:transform .1s}
+.opt:hover:not(:disabled) .hex-in{background:linear-gradient(#1c34c8,#0b1a78)}
+.opt .hex>div{display:flex;gap:.7em;align-items:center;padding:.8em 2.6em}
+.opt b{color:var(--org);font-size:1.1em}
+.opt.sel .hex{background:var(--org)}.opt.sel .hex>div{background:linear-gradient(#a85a00,#5a2f00)}
+.opt.ok .hex{background:var(--ok)}.opt.ok .hex>div{background:linear-gradient(#16a34a,#064e1c)}
+.opt.bad .hex{background:var(--bad)}.opt.bad .hex>div{background:linear-gradient(#b91c32,#4c0715)}
+.opt.gone{visibility:hidden}.opt.blink .hex>div{animation:bl .35s 6}@keyframes bl{50%{background:#fff;color:#000}}
+#exp{min-height:1.5em;color:var(--dim)}#exp.show{color:var(--fg)}
+#ladder{align-self:center;background:#050a3acc;border:1px solid var(--gold2);border-radius:12px;padding:10px;display:flex;flex-direction:column-reverse;gap:3px}
+.lv{display:flex;justify-content:space-between;padding:3px 10px;border-radius:6px;color:var(--org);font-weight:700;font-variant-numeric:tabular-nums}
+.lv.m{color:#fff}.lv.cur{background:var(--org);color:#000}.lv.done{color:var(--gold)}
+#banner{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;font-size:3em;font-weight:800;color:var(--gold);text-shadow:0 0 30px #000;background:#02041caa;z-index:5;white-space:pre-line}
+#toast{position:fixed;top:18px;left:50%;transform:translate(-50%,-160%);z-index:9;background:linear-gradient(var(--ok),#0d7a36);color:#fff;font-weight:800;font-size:1.25em;padding:.7em 1.6em;border-radius:999px;border:3px solid #fff;box-shadow:0 10px 40px #000a;transition:transform .35s cubic-bezier(.2,1.4,.4,1);cursor:pointer}
+#toast.show{transform:translate(-50%,0)}
+#themes{position:fixed;inset:0;background:#02041ccc;z-index:8;display:flex;align-items:center;justify-content:center}#themes[hidden]{display:none}
+#themes .hex{width:min(820px,94vw);max-height:90vh}#themes .hex>div{padding:1.4em 3.2em;max-height:90vh;overflow:auto}
+#themes h2{margin:0 0 .2em;color:var(--gold)}.sub{color:var(--dim);font-size:.8em}.row{display:block;margin:.4em 0;cursor:pointer}
+#manual{margin:.4em 0 0 1.4em;opacity:1}#manual.off{opacity:.35;pointer-events:none}.lbl{margin:.7em 0 .3em;color:var(--gold);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;max-height:22vh;overflow:auto}
+.chip{border:1px solid var(--gold2);background:#050a3a;color:var(--fg);border-radius:999px;padding:3px 12px;cursor:pointer;font:inherit;font-size:.85em}.chip.on{background:var(--org);color:#000;border-color:var(--org)}
+select{background:#02041c;border:1px solid var(--gold2);border-radius:8px;color:var(--fg);padding:6px 10px;font:inherit}
+#focus{width:100%;margin-top:8px;background:#02041c;border:1px solid var(--gold2);border-radius:8px;color:var(--fg);padding:8px 12px;font:inherit}
+.btns{display:flex;justify-content:flex-end;gap:10px;margin-top:1em}.go{background:var(--org)!important;color:#000!important}
+
+/* ---- intro (<5s) ---- */
+#intro{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#0b1a78 0%,#02041c 70%);animation:ifade 5s forwards;cursor:pointer;overflow:hidden}
+#intro.gone{display:none}
+.i-rays{position:absolute;width:260vmax;height:260vmax;background:repeating-conic-gradient(from 0deg,#f2c14e22 0 6deg,transparent 6deg 18deg);animation:irot 5s linear forwards;opacity:0;animation:irot 5s linear forwards,iray 5s forwards}
+@keyframes irot{to{transform:rotate(60deg)}}@keyframes iray{0%{opacity:0}20%,80%{opacity:1}100%{opacity:0}}
+.i-title{position:relative;text-align:center;font-weight:900;letter-spacing:.08em;text-shadow:0 0 40px #f2c14e88;animation:ititle 1.1s .5s cubic-bezier(.2,1.4,.4,1) both}
+.i-title span{display:block;font-size:clamp(20px,3.2vw,56px);color:var(--fg)}
+.i-title b{display:block;font-size:clamp(60px,12vw,200px);line-height:1;background:linear-gradient(#fff2b8,var(--gold) 50%,var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
+@keyframes ititle{from{transform:scale(.2) rotate(-8deg);opacity:0;filter:blur(12px)}}
+.i-sub{position:relative;margin-top:1.2em;color:var(--dim);font-size:clamp(14px,1.6vw,26px);letter-spacing:.2em;text-transform:uppercase;animation:fup .8s 1.8s both}
+.i-skip{position:absolute;bottom:3vh;color:#ffffff66;font-size:.8em;animation:fup .6s 1s both}
+@keyframes ifade{0%,88%{opacity:1}100%{opacity:0}}
+/* ---- barras de desplazamiento ---- */
+*{scrollbar-width:thin;scrollbar-color:var(--gold2) #02041c}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#02041c99;border-radius:999px;box-shadow:inset 0 0 0 1px #2a3aa8}
+::-webkit-scrollbar-thumb{background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:999px;border:2px solid #02041c}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(90deg,#ffd978,var(--gold))}
+::-webkit-scrollbar-corner{background:transparent}
+/* ---- question reveal ---- */
+.hex{position:relative}
+.hex.qin{overflow:hidden;animation:qin .8s cubic-bezier(.2,1.3,.4,1) both}
+.hex.qin::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 38%,#fffb 50%,transparent 62%);transform:translateX(-130%);animation:sweep 1.1s .35s ease-out forwards}
+@keyframes qin{0%{transform:scale(.55);opacity:0;filter:brightness(4)}60%{opacity:1;filter:brightness(1.6)}100%{transform:scale(1);opacity:1;filter:none}}
+@keyframes sweep{to{transform:translateX(130%)}}
+#cat.qin,#ctx.qin,#code.qin{animation:fup .6s .1s backwards}
+@keyframes fup{from{opacity:0;transform:translateY(14px)}}
+.opt.qin{animation:oin .5s backwards cubic-bezier(.2,1.2,.4,1)}
+@keyframes oin{from{opacity:0;transform:translateX(-60px) scale(.9)}}
+@media(max-width:900px){#ui{grid-template-columns:1fr}#ladder{display:none}#opts{grid-template-columns:1fr}}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="banner"></div>
+<div id="toast"></div>
+<div id="intro"><div class="i-rays"></div><div class="i-title"><span>WHO WANTS TO BE</span><b>A DEV?</b></div><div class="i-sub">Stay sharp while your agent works</div><div class="i-skip">press any key to skip</div></div>
+<div id="themes" hidden><div class="hex"><div>
+  <h2 id="tt">Choose your topics</h2>
+  <div class="sub" id="trepo"></div>
+  <div class="lbl" style="margin-top:.2em">Question language</div><select id="lang"></select>
+  <div class="lbl">Topics</div>
+  <label class="row"><input type="radio" name="mode" value="auto" id="mauto"> <b>Automatic</b> <span id="autoinfo"></span></label>
+  <label class="row"><input type="radio" name="mode" value="manual" id="mman"> <b>Manual</b></label>
+  <div id="manual">
+    <div class="lbl">Area</div><div id="areas" class="chips"></div>
+    <div class="lbl">Feature / module <span class="sub">(tap any, or type)</span></div>
+    <div id="feats" class="chips"></div>
+    <input id="focus" placeholder="e.g. customers, categories, suppliers">
+  </div>
+  <div class="btns"><button class="lf tema" id="tcancel">Cancel</button><button class="lf tema go" id="tok">Apply</button></div>
+</div></div></div>
+<div id="ui">
+  <div id="stage">
+    <div id="bar">
+      <div class="pill" id="agent">agent: …</div><div class="pill" id="meta"></div>
+      <button class="lf tema" id="ftema" title="Choose topics (key T)">TOPICS</button>
+      <div class="life"><button class="lf" id="f5" title="50:50 (key F)">50:50</button><button class="lf" id="fp" title="Pass (key P)">PASS</button></div>
+    </div>
+    <div id="mid">
+      <div id="cat"></div><div id="ctx"></div><pre id="code" hidden></pre>
+      <div class="hex"><div id="qt">Loading question…</div></div>
+    </div>
+    <div id="opts"></div>
+    <div id="exp"></div>
+  </div>
+  <div id="ladder"></div>
+</div>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+<script type="module" src="game.js"></script>
+</body></html>

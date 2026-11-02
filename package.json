@@ -1,0 +1,42 @@
+{
+  "name": "quiz-dev",
+  "version": "0.1.0",
+  "description": "A 'Who Wants to Be a Millionaire' style quiz about YOUR repo, to play while your coding agent (Claude Code) is working.",
+  "keywords": [
+    "claude-code",
+    "quiz",
+    "game",
+    "developer-tools",
+    "skill",
+    "hooks",
+    "webgl"
+  ],
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "bin": {
+    "quiz-dev": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "public",
+    "skills",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "author": "Leandro <leandrofusdev@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leandrofus/who-wants-to-be-a-DEV.git"
+  },
+  "homepage": "https://github.com/leandrofus/who-wants-to-be-a-DEV#readme",
+  "bugs": {
+    "url": "https://github.com/leandrofus/who-wants-to-be-a-DEV/issues"
+  }
+}
