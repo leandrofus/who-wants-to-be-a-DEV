@@ -69,6 +69,10 @@ The Topics dialog lets you browse to and pin any folder, switch to a recent fold
 
 ## Controls
 
+**Other agents:** `quiz-dev install` detects Claude Code, Codex CLI and Antigravity and sets up each one (`quiz-dev install codex|antigravity|claude|all`; `uninstall` reverses it). Codex: skill in `~/.codex/skills`, hooks in `~/.codex/hooks.json` (run `/hooks` once in Codex to trust them). Antigravity: skill in `~/.gemini/antigravity/skills`, hooks in `~/.gemini/config/hooks.json`.
+
+**Repository:** it follows the repo of the agent that fired the hook (or the folder you ran `quiz-dev start` in). To pin another folder, use the *Repository* section of the topics dialog (`T`); *Auto* goes back to following the agent.
+
 **PR review mode:** in the topics dialog (`T`) pick *PR review* instead of topics. Questions are then generated from the diff of your current branch against its base (the open GitHub PR if `gh` is available, otherwise `origin/main`/`master`; with no branch changes, the last commit). The point: prove you understand what you are about to ship.
 
 `A–D` / `1–4` or click: answer · `Enter`: confirm · `F`: 50:50 · `P`: pass · `T`: choose topics.

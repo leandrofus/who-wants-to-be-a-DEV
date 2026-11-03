@@ -47,7 +47,7 @@ const PROVIDERS = [
 
 const SRC = /\.(js|mjs|cjs|jsx|ts|tsx|py|go|rs|java|kt|c|h|cpp|hpp|cs|rb|php|swift|sh|sql|lua|ex|exs|scala|vue|svelte|css|scss|html|ya?ml|tf)$|(^|\/)(Dockerfile|Makefile)$/i;
 const SKIP = /(^|\/)(node_modules|dist|build|vendor|\.git|gatt-out)\/|\.min\.|lock|secret|credential|\.env|\.pem|\.key|\.d\.ts$|\.(test|spec)\./i;
-const git = (cwd, ...a) => { try { return execFileSync('git', a, { cwd, encoding: 'utf8', timeout: 3000, maxBuffer: 4e6 }); } catch { return ''; } };
+const git = (cwd, ...a) => { try { return execFileSync('git', a, { windowsHide: true, cwd, encoding: 'utf8', timeout: 3000, maxBuffer: 4e6 }); } catch { return ''; } };
 
 // Áreas temáticas: el juego se restringe a la que el usuario está tocando.
 const AREAS = {
@@ -77,7 +77,7 @@ function listFiles(cwd) {
     const out = [], walk = (d, depth) => {
       if (depth > 4 || out.length > 2000) return;
       for (const e of fs.readdirSync(path.join(cwd, d), { withFileTypes: true })) {
-        const rel = path.join(d, e.name);
+        const rel = path.posix.join(d.split(path.sep).join('/'), e.name);
         if (e.name.startsWith('.') || SKIP.test(rel + '/')) continue;
         e.isDirectory() ? walk(rel, depth + 1) : out.push(rel);
       }
@@ -144,7 +144,7 @@ function repoContext(cwd, sel) {
 }
 
 // ---- PR review: base branch, title and diff of the branch the user is sending
-const gitL = (cwd, ...a) => { try { return execFileSync('git', a, { cwd, encoding: 'utf8', timeout: 10000, maxBuffer: 16e6 }); } catch { return ''; } };
+const gitL = (cwd, ...a) => { try { return execFileSync('git', a, { windowsHide: true, cwd, encoding: 'utf8', timeout: 10000, maxBuffer: 16e6 }); } catch { return ''; } };
 const prCache = new Map();
 function prInfo(cwd) {
   const hit = prCache.get(cwd);
@@ -154,7 +154,7 @@ function prInfo(cwd) {
     v.branch = git(cwd, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
     v.head = git(cwd, 'rev-parse', 'HEAD').trim();
     try { // PR de GitHub si hay gh
-      const j = JSON.parse(execFileSync('gh', ['pr', 'view', '--json', 'number,title,body,baseRefName'], { cwd, encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'ignore'] }));
+      const j = JSON.parse(execFileSync('gh', ['pr', 'view', '--json', 'number,title,body,baseRefName'], { windowsHide: true, cwd, encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'ignore'] }));
       v.number = j.number; v.title = j.title || ''; v.body = (j.body || '').slice(0, 1200); v.base = j.baseRefName || '';
     } catch {}
     const cands = [v.base && 'origin/' + v.base, v.base, git(cwd, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD').trim(), 'origin/main', 'origin/master', 'main', 'master'].filter(Boolean);
@@ -321,8 +321,9 @@ async function viaAnthropic(prompt) {
 // Run generation CLIs outside the repo so question prompts cannot grant them workspace access.
 function viaCli(command, args, prompt, name) {
   return new Promise((resolve, reject) => {
-    const p = spawn(command, args,
-      { cwd: os.tmpdir(), env: { ...process.env, QUIZ_GEN: '1' }, shell: process.platform === 'win32' });
+    const win = process.platform === 'win32'; // shell:true on Windows drops empty args (--tools '') unless quoted
+    const p = spawn(command, win ? args.map((a) => (a === '' ? '""' : a)) : args,
+      { cwd: os.tmpdir(), env: { ...process.env, QUIZ_GEN: '1' }, shell: win, windowsHide: true });
     let out = '', err = '';
     let settled = false;
     const finish = (error, value) => {
@@ -330,7 +331,7 @@ function viaCli(command, args, prompt, name) {
       settled = true; clearTimeout(timer);
       error ? reject(error) : resolve(value);
     };
-    const timer = setTimeout(() => { p.kill(); finish(new Error(`${name} timeout`)); }, 60000);
+    const timer = setTimeout(() => { p.kill(); finish(new Error(`${name} timeout`)); }, cfg.cliTimeoutMs || 240000);
     p.stdout.on('data', (d) => (out += d)); p.stderr.on('data', (d) => (err += d));
     p.on('error', (e) => finish(new Error(`${name}: ${e.message}`)));
     p.on('close', (code) => code === 0 ? finish(null, out) : finish(new Error(`${name} ${code}: ${err.slice(0, 160)}`)));

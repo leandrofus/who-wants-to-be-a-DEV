@@ -24,17 +24,17 @@ const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { retu
 async function up() { try { return (await fetch(URL_() + '/', { signal: AbortSignal.timeout(1500) })).ok; } catch { return false; } }
 
 function openBrowser(url) {
-  const [c, a] = process.platform === 'darwin' ? ['open', [url]] : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : ['xdg-open', [url]];
-  try { spawn(c, a, { stdio: 'ignore', detached: true }).on('error', () => {}).unref(); } catch {}
+  const [c, a] = process.platform === 'darwin' ? ['open', [url]] : process.platform === 'win32' ? ['rundll32', ['url.dll,FileProtocolHandler', url]] : ['xdg-open', [url]];
+  try { spawn(c, a, { stdio: 'ignore', detached: true, windowsHide: true }).on('error', () => {}).unref(); } catch {}
 }
 
 async function start() {
   if (await up()) console.log(`Already running: ${URL_()}`);
   else {
     fs.mkdirSync(DATA, { recursive: true });
-    const child = spawn(process.execPath, [path.join(pkgRoot, 'src', 'server.js')], { detached: true, stdio: 'ignore', env: process.env });
+    const child = spawn(process.execPath, [path.join(pkgRoot, 'src', 'server.js')], { detached: true, stdio: 'ignore', windowsHide: true, env: process.env });
     child.unref(); fs.writeFileSync(PID, String(child.pid));
-    for (let i = 0; i < 30 && !(await up()); i++) await sleep(200);
+    for (let i = 0; i < 75 && !(await up()); i++) await sleep(200);
     if (!(await up())) { console.error('The server did not start (is the port busy? set "port" in ' + path.join(DATA, 'config.json') + ')'); process.exit(1); }
     console.log(`Started: ${URL_()}`);
   }
@@ -48,6 +48,7 @@ async function start() {
   } catch (e) {
     console.error(`Could not select the current folder as the quiz repo: ${e.message}`);
   }
+  try { await fetch(URL_() + '/api/event', { method: 'POST', body: JSON.stringify({ type: 'repo', cwd: process.cwd(), session: 'cli' }), signal: AbortSignal.timeout(1500) }); } catch {} // adopt the folder `quiz-dev start` ran in
   if (!flags.has('--no-open')) openBrowser(URL_());
 }
 
@@ -75,7 +76,7 @@ async function notify(kind) {
 }
 
 function desktopNotify(title, text) {
-  const run = (c, a) => { try { spawn(c, a, { stdio: 'ignore', detached: true }).on('error', () => {}).unref(); } catch {} };
+  const run = (c, a) => { try { spawn(c, a, { stdio: 'ignore', detached: true, windowsHide: true }).on('error', () => {}).unref(); } catch {} };
   if (process.platform === 'darwin') run('osascript', ['-e', `display notification "${text}" with title "${title}"`]);
   else if (process.platform === 'win32') run('powershell', ['-NoProfile', '-Command', `Add-Type -AssemblyName System.Windows.Forms; $n = New-Object System.Windows.Forms.NotifyIcon; $n.Icon = [System.Drawing.SystemIcons]::Information; $n.Visible = $true; $n.ShowBalloonTip(5000, '${title}', '${text}', 'Info'); Start-Sleep -Seconds 6; $n.Dispose()`]);
   else run('notify-send', ['-a', 'Claude Code', title, text]);
@@ -88,7 +89,7 @@ const TARGETS = {
   codex: { name: 'Codex CLI', dir: process.env.CODEX_HOME || path.join(home, '.codex'), skills: 'skills', cmd: 'codex' },
   antigravity: { name: 'Antigravity', dir: path.join(home, '.gemini'), skills: path.join('antigravity', 'skills'), cmd: 'agy' },
 };
-const hasCmd = (c) => { try { execFileSync(process.platform === 'win32' ? 'where' : 'sh', process.platform === 'win32' ? [c] : ['-c', `command -v ${c}`], { stdio: 'ignore' }); return true; } catch { return false; } };
+const hasCmd = (c) => { try { execFileSync(process.platform === 'win32' ? 'where' : 'sh', process.platform === 'win32' ? [c] : ['-c', `command -v ${c}`], { stdio: 'ignore', windowsHide: true }); return true; } catch { return false; } };
 const readJsonStrict = (f) => { if (!fs.existsSync(f)) return {}; try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { console.error(`Cannot parse ${f}: ${e.message}`); process.exit(1); } };
 
 function install(undo, targetArg) {
