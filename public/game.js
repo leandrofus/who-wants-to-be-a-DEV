@@ -235,17 +235,64 @@ addEventListener('keydown', (e) => {
 });
 
 // ---------- selector de temáticas ----------
-let th = null, chosenAreas = new Set(), chosenFocus = new Set();
+let th = null, chosenAreas = new Set(), chosenFocus = new Set(), dirState = null;
 let startMode = false;
 // idioma de las preguntas: lo guardado en el navegador, o el idioma del navegador si lo soportamos
 let langPref = null;
 try { langPref = localStorage.getItem('quizLang'); } catch {}
 const browserLang = (navigator.language || 'en').slice(0, 2);
+function renderRepoInfo() {
+  $('trepo').textContent = `Repo: ${th.repoPath || '(not set)'}${th.pinned ? ' · pinned' : ' · automatic'}`;
+  $('recent-repos').innerHTML = '';
+  th.recent.forEach((p) => {
+    const b = document.createElement('button'); b.className = 'repo-btn'; b.textContent = p;
+    b.onclick = () => setRepo(p); $('recent-repos').append(b);
+  });
+}
+async function loadDirs(dir) {
+  const query = dir ? '?path=' + encodeURIComponent(dir) : '';
+  const r = await fetch('/api/dirs' + query);
+  dirState = await r.json();
+  if (!r.ok) throw new Error(dirState.error || `Could not browse folders (${r.status})`);
+  $('folder-path').textContent = dirState.path;
+  $('rup').disabled = !dirState.parent;
+  $('folder-list').innerHTML = '';
+  dirState.dirs.forEach((d) => {
+    const b = document.createElement('button'); b.className = 'repo-btn';
+    b.textContent = `${d.name}/${d.git ? '  [git]' : ''}`;
+    b.onclick = () => loadDirs(dirState.path + '/' + d.name).catch(showRepoError);
+    $('folder-list').append(b);
+  });
+}
+function showRepoError(e) { $('repo-error').textContent = e.message || String(e); }
+async function setRepo(repoPath) {
+  $('repo-error').textContent = '';
+  try {
+    const r = await fetch('/api/repo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: repoPath }) });
+    if (!r.ok) {
+      const j = r.headers.get('content-type')?.includes('application/json') ? await r.json() : {};
+      throw new Error(j.error || `Could not change repo (${r.status})`);
+    }
+    $('folder-picker').hidden = true;
+    await openThemes(startMode);
+  } catch (e) { showRepoError(e); }
+}
 async function pushLang() {
   const code = $('lang').value; if (!code) return;
   try { localStorage.setItem('quizLang', code); } catch {}
   langPref = code;
   await fetch('/api/lang', { method: 'POST', body: JSON.stringify({ lang: code }) });
+}
+async function pushProvider() {
+  const r = await fetch('/api/provider', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ provider: $('provider').value }),
+  });
+  if (!r.ok) {
+    const j = r.headers.get('content-type')?.includes('application/json') ? await r.json() : {};
+    throw new Error(j.error || `Could not change provider (${r.status})`);
+  }
 }
 const openThemes = async (start = false) => {
   startMode = start === true;
@@ -255,10 +302,22 @@ const openThemes = async (start = false) => {
   $('tcancel').textContent = startMode ? 'Keep current' : 'Cancel';
   th = await (await fetch('/api/themes')).json();
   chosenAreas = new Set(th.manual ? th.sel.areas : []); chosenFocus = new Set(th.manual ? th.sel.focus : []);
-  $('trepo').textContent = 'Repo: ' + th.repo;
+  renderRepoInfo();
   $('autoinfo').textContent = '(now: ' + th.auto + ', based on what you touch)';
   $('lang').innerHTML = Object.entries(th.langs).map(([c, n]) => `<option value="${c}">${n}</option>`).join('');
   $('lang').value = langPref || (th.langs[browserLang] ? browserLang : th.lang);
+  $('provider').replaceChildren(...th.providers.map((p) => {
+    const option = document.createElement('option');
+    option.value = p.id; option.textContent = p.label;
+    return option;
+  }));
+  $('provider').value = th.provider;
+  $('provider-info').textContent = th.providers.find((p) => p.id === th.provider)?.detail || '';
+  $('provider-error').textContent = '';
+  $('provider').onchange = () => {
+    $('provider-info').textContent = th.providers.find((p) => p.id === $('provider').value)?.detail || '';
+    $('provider-error').textContent = '';
+  };
   $('mauto').checked = !th.manual; $('mman').checked = th.manual && !th.pr; $('mpr').checked = th.pr;
   const pi = th.prinfo;
   $('prinfo').textContent = pi.ok ? `(${pi.number ? '#' + pi.number + ' ' : ''}${pi.title} · ${pi.files} files vs ${pi.base}) — quiz on the change you are sending` : '(no changes found against the base branch — commit on a branch first)';
@@ -266,6 +325,14 @@ const openThemes = async (start = false) => {
   renderAreas(); await loadFeats();
   $('mauto').checked = !th.manual; $('mman').checked = th.manual && !th.pr; $('mpr').checked = th.pr; syncMode();
 };
+ $('rchange').onclick = async () => {
+  $('repo-error').textContent = ''; $('folder-picker').hidden = false;
+  try { await loadDirs(th.repoPath); } catch (e) { showRepoError(e); }
+};
+$('rauto').onclick = () => setRepo('');
+$('rup').onclick = () => { if (dirState?.parent) loadDirs(dirState.parent).catch(showRepoError); };
+$('ruse').onclick = () => { if (dirState?.path) setRepo(dirState.path); };
+$('rclose').onclick = () => { $('folder-picker').hidden = true; };
 const syncMode = () => $('manual').classList.toggle('off', !$('mman').checked);
 function chip(label, on, fn) { const b = document.createElement('button'); b.className = 'chip' + (on ? ' on' : ''); b.textContent = label; b.onclick = () => { fn(); b.classList.toggle('on'); $('mman').checked = true; syncMode(); }; return b; }
 function renderAreas() {
@@ -307,12 +374,14 @@ $('ftema').onclick = () => openThemes(); $('tcancel').onclick = async () => { $(
 $('tok').onclick = async () => {
   addTyped();
   const body = $('mauto').checked ? { auto: true } : $('mpr').checked ? { pr: true } : { areas: [...chosenAreas], focus: [...chosenFocus] };
+  $('provider-error').textContent = '';
+  try { await pushProvider(); } catch (e) { $('provider-error').textContent = e.message || String(e); return; }
   await pushLang();
   await fetch('/api/theme', { method: 'POST', body: JSON.stringify(body) });
   $('themes').hidden = true;
   if (startMode) return beginRound();
   $('exp').className = 'show';
-  $('exp').textContent = 'Topics applied: the next questions will take a few seconds to generate.';
+  $('exp').textContent = 'Settings applied: the next questions will take a few seconds to generate.';
 };
 
 // ---------- aviso de "agente terminó": sonido + toast + notificación del sistema ----------

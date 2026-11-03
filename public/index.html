@@ -47,6 +47,17 @@ pre{margin:0;padding:14px;background:#02041ccc;border:1px solid #2a3aa8;border-r
 .chips{display:flex;flex-wrap:wrap;gap:6px;max-height:22vh;overflow:auto}
 .chip{border:1px solid var(--gold2);background:#050a3a;color:var(--fg);border-radius:999px;padding:3px 12px;cursor:pointer;font:inherit;font-size:.85em}.chip.on{background:var(--org);color:#000;border-color:var(--org)}
 select{background:#02041c;border:1px solid var(--gold2);border-radius:8px;color:var(--fg);padding:6px 10px;font:inherit}
+#provider{width:min(100%,28em)}
+#repo-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:.35em 0}
+#repo-tools .sub{flex:1;min-width:16em;overflow-wrap:anywhere}
+.repo-btn{border:1px solid var(--gold2);background:#050a3a;color:var(--fg);border-radius:8px;padding:5px 10px;cursor:pointer;font:inherit;font-size:.8em}
+#recent-repos{display:flex;flex-wrap:wrap;gap:6px;margin:.35em 0}
+#folder-picker{margin:.5em 0;padding:10px;background:#02041c;border:1px solid var(--gold2);border-radius:10px}
+#folder-picker[hidden]{display:none}
+#folder-path{overflow-wrap:anywhere;margin:.35em 0;color:var(--dim)}
+#folder-list{display:flex;flex-direction:column;gap:4px;max-height:22vh;overflow:auto}
+#folder-list button{text-align:left}
+#repo-error{color:#ff8795;min-height:1.2em}
 #tokens{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;padding:6px 8px;min-height:2.6em;background:#02041c;border:1px solid var(--gold2);border-radius:10px;cursor:text}
 #tokens:focus-within{border-color:var(--gold);box-shadow:0 0 0 2px #f2c14e33}
 .tok{display:inline-flex;align-items:center;gap:2px;background:linear-gradient(var(--org),#d27a10);color:#000;font-weight:700;font-size:.85em;border-radius:999px;padding:2px 4px 2px 12px;animation:tokin .18s ease-out}
@@ -92,7 +103,19 @@ select{background:#02041c;border:1px solid var(--gold2);border-radius:8px;color:
 <div id="intro"><div class="i-rays"></div><div class="i-title"><span>WHO WANTS TO BE</span><b>A DEV?</b></div><div class="i-sub">Stay sharp while your agent works</div><div class="i-skip">press any key to skip</div></div>
 <div id="themes" hidden><div class="hex"><div>
   <h2 id="tt">Choose your topics</h2>
-  <div class="sub" id="trepo"></div>
+  <div class="lbl" style="margin-top:.2em">Repository / folder</div>
+  <div id="repo-tools"><div class="sub" id="trepo"></div><button class="repo-btn" id="rchange">Browse…</button><button class="repo-btn" id="rauto">Follow current repo</button></div>
+  <div id="recent-repos"></div>
+  <div id="folder-picker" hidden>
+    <div id="folder-path"></div>
+    <div class="btns" style="margin:.3em 0"><button class="repo-btn" id="rup">Up</button><button class="repo-btn" id="ruse">Use this folder</button><button class="repo-btn" id="rclose">Close</button></div>
+    <div id="folder-list"></div>
+  </div>
+  <div class="sub" id="repo-error" role="status"></div>
+  <div class="lbl" style="margin-top:.2em">Question provider</div>
+  <select id="provider" aria-label="Question provider"></select>
+  <div class="sub" id="provider-info"></div>
+  <div class="sub" id="provider-error" role="status"></div>
   <div class="lbl" style="margin-top:.2em">Question language</div><select id="lang"></select>
   <div class="lbl">Topics</div>
   <label class="row"><input type="radio" name="mode" value="auto" id="mauto"> <b>Automatic</b> <span id="autoinfo"></span></label>

@@ -27,19 +27,21 @@ Restart Claude Code (or `/reload-skills`), then type `/quiz`, or run `quiz-dev s
 |---|---|
 | `quiz-dev start` | Local server on `127.0.0.1:7777` + opens the game in your browser. |
 | Hooks (`UserPromptSubmit`, `Stop`) | Tell the game when the agent starts/finishes and which repo/session/prompt it is on. They cost no tokens. |
-| Question generator | Runs `claude -p --model haiku` with the prompt on stdin (uses your Claude Code login), or the API with `ANTHROPIC_API_KEY`, or a local Ollama model. Pre-generates 10 per session. |
+| Question generator | Requests one batch of up to 10 questions from the selected provider: Claude Code, Antigravity (`agy`), Codex CLI, Anthropic API, or Ollama. |
 
 ## Privacy
 
 To write questions, **snippets of your code** (about 50 lines of a file, the file list, recent commit subjects and the
-uncommitted diff) and your last prompts are sent to the model through your own `claude` CLI / API key. Files named
+uncommitted diff) and your last prompts are sent to the selected provider using its CLI login, API key, or local
+Ollama instance. Files named
 like secrets (`.env`, `*.key`, `*.pem`, `secret`, `credential`, lockfiles) are skipped. Nothing else leaves your machine,
 the server listens on loopback only, and the game page loads no third-party code.
 
 ## Cost
 
-Each question is one small Haiku call (about 12k mostly-cached input tokens, ~500 output, a fraction of a cent).
-A full queue is roughly 10–15 calls. They count against your Claude usage like any other request. Lower `prefetch` to reduce.
+Questions are generated in batches of 10 with one provider call; the batch is queued and served one question at a time.
+The output is larger than a single-question response, but avoids starting a separate CLI session for every question.
+Lower `prefetch` in `config.json` (1–10) to request a smaller batch.
 
 ## Configuration
 
@@ -57,9 +59,13 @@ A full queue is roughly 10–15 calls. They count against your Claude usage like
 }
 ```
 
-- `repo`: pin the game to one repo regardless of where the agent runs (empty = follow the agent).
-- `provider`: `auto` (API key → `claude` CLI → Ollama), `claude-cli`, `anthropic`, or `ollama`.
+- `repo`: pin the game to one repo regardless of where the agent runs (empty = follow the agent; `quiz-dev start` initially uses the current folder/repo).
+- `provider`: the default question generator: `auto` (API key → Claude Code → Ollama), `claude-cli`, `antigravity`, `codex`, `anthropic`, or `ollama`. You can override it from the Topics dialog; that choice is saved in `prefs.json`.
+- `prefetch`: questions per generated batch (1–10; defaults to 10).
+- The Topics dialog's **Question provider** setting supports Claude Code (`claude`), Antigravity (`agy`), Codex CLI (`codex`), and Ollama. `Automatic` preserves the configured fallback order; **Anthropic API** requires `ANTHROPIC_API_KEY`.
 - Topic choices are saved per repo in `prefs.json` next to the config.
+
+The Topics dialog lets you browse to and pin any folder, switch to a recent folder, or return to automatic repo selection.
 
 ## Controls
 
