@@ -47,7 +47,12 @@ pre{margin:0;padding:14px;background:#02041ccc;border:1px solid #2a3aa8;border-r
 .chips{display:flex;flex-wrap:wrap;gap:6px;max-height:22vh;overflow:auto}
 .chip{border:1px solid var(--gold2);background:#050a3a;color:var(--fg);border-radius:999px;padding:3px 12px;cursor:pointer;font:inherit;font-size:.85em}.chip.on{background:var(--org);color:#000;border-color:var(--org)}
 select{background:#02041c;border:1px solid var(--gold2);border-radius:8px;color:var(--fg);padding:6px 10px;font:inherit}
-#focus{width:100%;margin-top:8px;background:#02041c;border:1px solid var(--gold2);border-radius:8px;color:var(--fg);padding:8px 12px;font:inherit}
+#tokens{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;padding:6px 8px;min-height:2.6em;background:#02041c;border:1px solid var(--gold2);border-radius:10px;cursor:text}
+#tokens:focus-within{border-color:var(--gold);box-shadow:0 0 0 2px #f2c14e33}
+.tok{display:inline-flex;align-items:center;gap:2px;background:linear-gradient(var(--org),#d27a10);color:#000;font-weight:700;font-size:.85em;border-radius:999px;padding:2px 4px 2px 12px;animation:tokin .18s ease-out}
+.tok .x{border:0;background:#0003;color:#000;width:1.5em;height:1.5em;border-radius:50%;cursor:pointer;font:inherit;line-height:1;padding:0}.tok .x:hover{background:#000a;color:#fff}
+@keyframes tokin{from{transform:scale(.6);opacity:0}}
+#focus{flex:1;min-width:10em;background:transparent;border:0;outline:0;color:var(--fg);font:inherit;padding:4px}
 .btns{display:flex;justify-content:flex-end;gap:10px;margin-top:1em}.go{background:var(--org)!important;color:#000!important}
 
 /* ---- intro (<5s) ---- */
@@ -92,11 +97,12 @@ select{background:#02041c;border:1px solid var(--gold2);border-radius:8px;color:
   <div class="lbl">Topics</div>
   <label class="row"><input type="radio" name="mode" value="auto" id="mauto"> <b>Automatic</b> <span id="autoinfo"></span></label>
   <label class="row"><input type="radio" name="mode" value="manual" id="mman"> <b>Manual</b></label>
+  <label class="row"><input type="radio" name="mode" value="pr" id="mpr"> <b>PR review</b> <span id="prinfo" class="sub"></span></label>
   <div id="manual">
     <div class="lbl">Area</div><div id="areas" class="chips"></div>
     <div class="lbl">Feature / module <span class="sub">(tap any, or type)</span></div>
     <div id="feats" class="chips"></div>
-    <input id="focus" placeholder="e.g. customers, categories, suppliers">
+    <div id="tokens"><input id="focus" placeholder="type a term and press Enter…" autocomplete="off"></div>
   </div>
   <div class="btns"><button class="lf tema" id="tcancel">Cancel</button><button class="lf tema go" id="tok">Apply</button></div>
 </div></div></div>

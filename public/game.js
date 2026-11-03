@@ -137,7 +137,7 @@ function banner(text, ms = 2600) {
   const b = $('banner'); b.textContent = text; b.style.display = 'flex';
   return new Promise((r) => setTimeout(() => { b.style.display = 'none'; r(); }, ms));
 }
-const CAT = { lang: 'Language', code: 'Your code', diff: 'Your changes', design: 'Design' };
+const CAT = { pr: 'Your PR', lang: 'Language', code: 'Your code', diff: 'Your changes', design: 'Design' };
 
 async function nextQuestion() {
   locked = true; sel = -1; q = null;
@@ -259,11 +259,14 @@ const openThemes = async (start = false) => {
   $('autoinfo').textContent = '(now: ' + th.auto + ', based on what you touch)';
   $('lang').innerHTML = Object.entries(th.langs).map(([c, n]) => `<option value="${c}">${n}</option>`).join('');
   $('lang').value = langPref || (th.langs[browserLang] ? browserLang : th.lang);
-  $('mauto').checked = !th.manual; $('mman').checked = th.manual;
-  $('focus').value = [...chosenFocus].join(', ');
+  $('mauto').checked = !th.manual; $('mman').checked = th.manual && !th.pr; $('mpr').checked = th.pr;
+  const pi = th.prinfo;
+  $('prinfo').textContent = pi.ok ? `(${pi.number ? '#' + pi.number + ' ' : ''}${pi.title} · ${pi.files} files vs ${pi.base}) — quiz on the change you are sending` : '(no changes found against the base branch — commit on a branch first)';
+  renderTokens();
   renderAreas(); await loadFeats();
+  $('mauto').checked = !th.manual; $('mman').checked = th.manual && !th.pr; $('mpr').checked = th.pr; syncMode();
 };
-const syncMode = () => $('manual').classList.toggle('off', $('mauto').checked);
+const syncMode = () => $('manual').classList.toggle('off', !$('mman').checked);
 function chip(label, on, fn) { const b = document.createElement('button'); b.className = 'chip' + (on ? ' on' : ''); b.textContent = label; b.onclick = () => { fn(); b.classList.toggle('on'); $('mman').checked = true; syncMode(); }; return b; }
 function renderAreas() {
   $('areas').innerHTML = '';
@@ -273,15 +276,37 @@ function renderAreas() {
 async function loadFeats() {
   const r = await (await fetch('/api/themes?areas=' + [...chosenAreas].join(','))).json();
   $('feats').innerHTML = '';
-  r.features.forEach((f) => $('feats').append(chip(`${f.name} (${f.count})`, chosenFocus.has(f.name), () => {
-    chosenFocus.has(f.name) ? chosenFocus.delete(f.name) : chosenFocus.add(f.name); $('focus').value = [...chosenFocus].join(', ');
-  })));
+  r.features.forEach((f) => { const c = chip(`${f.name} (${f.count})`, chosenFocus.has(f.name), () => {
+    chosenFocus.has(f.name) ? chosenFocus.delete(f.name) : chosenFocus.add(f.name); renderTokens();
+  }); c.dataset.name = f.name; $('feats').append(c); });
 }
-$('focus').oninput = () => { chosenFocus = new Set($('focus').value.split(',').map((x) => x.trim()).filter(Boolean)); $('mman').checked = true; syncMode(); };
-$('mauto').onchange = $('mman').onchange = syncMode;
+// selected features / typed terms are shown as removable tokens
+function renderTokens() {
+  $('tokens').querySelectorAll('.tok').forEach((t) => t.remove());
+  [...chosenFocus].forEach((name) => {
+    const t = document.createElement('span'); t.className = 'tok'; t.textContent = name;
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = 'Remove';
+    x.onclick = () => { chosenFocus.delete(name); renderTokens(); };
+    t.append(x); $('tokens').insertBefore(t, $('focus'));
+  });
+  $('feats').querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', chosenFocus.has(c.dataset.name)));
+  $('mman').checked = true; syncMode();
+}
+function addTyped() {
+  const v = $('focus').value.split(',').map((x) => x.trim()).filter(Boolean);
+  if (!v.length) return; v.forEach((x) => chosenFocus.add(x)); $('focus').value = ''; renderTokens();
+}
+$('focus').onkeydown = (e) => {
+  if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); e.stopPropagation(); addTyped(); }
+  else if (e.key === 'Backspace' && !$('focus').value && chosenFocus.size) { chosenFocus.delete([...chosenFocus].pop()); renderTokens(); }
+};
+$('focus').onblur = addTyped;
+$('tokens').onclick = () => $('focus').focus();
+$('mauto').onchange = $('mman').onchange = $('mpr').onchange = syncMode;
 $('ftema').onclick = () => openThemes(); $('tcancel').onclick = async () => { $('themes').hidden = true; if (startMode) { await pushLang(); beginRound(); } };
 $('tok').onclick = async () => {
-  const body = $('mauto').checked ? { auto: true } : { areas: [...chosenAreas], focus: [...chosenFocus] };
+  addTyped();
+  const body = $('mauto').checked ? { auto: true } : $('mpr').checked ? { pr: true } : { areas: [...chosenAreas], focus: [...chosenFocus] };
   await pushLang();
   await fetch('/api/theme', { method: 'POST', body: JSON.stringify(body) });
   $('themes').hidden = true;

@@ -4,3 +4,6 @@ node_modules/
 prefs.json
 config.json
 .env*
+trailer/node_modules/
+trailer/out/
+trailer/frames/
