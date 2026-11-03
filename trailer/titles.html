@@ -1,0 +1,137 @@
+<!doctype html><html><head><meta charset="utf-8"><title>trailer titles</title>
+<style>
+:root{--gold:#f2c14e;--gold2:#a77b1e;--rust:#c2561a;--fg:#f4f6ff;--dim:#8fa0ff}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#000;font-family:"Montserrat",sans-serif;color:var(--fg)}
+canvas#bg{position:fixed;inset:0;width:1920px;height:1080px}
+.L{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;opacity:0;will-change:transform,opacity}
+.w{display:inline-block;opacity:0;will-change:transform,opacity,filter;white-space:pre}
+.s1 .a{font-weight:300;font-size:84px;letter-spacing:.04em}.s1 .b{font-weight:800;font-size:132px;letter-spacing:-.01em;margin-top:6px}
+.s2 .a{font-weight:200;font-size:170px;letter-spacing:.14em}
+.dots{font-weight:300;font-size:90px;color:var(--dim);letter-spacing:.3em;height:90px;margin-top:10px}
+.s3 .a{font-weight:300;font-size:80px;letter-spacing:.03em}.s3 .b{font-weight:900;font-size:260px;letter-spacing:-.02em;line-height:1;margin-top:6px}
+.s5 .a{font-weight:300;font-size:92px}.s5 .b{font-weight:800;font-size:128px;margin-top:6px}
+.gold{background:linear-gradient(#fff2b8,var(--gold) 55%,var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
+#term{width:1360px;height:700px;background:#0a0d1ef2;border:1px solid #2a3350;border-radius:16px;box-shadow:0 40px 120px #000c;overflow:hidden;text-align:left;font-family:"DejaVu Sans Mono","Liberation Mono",monospace}
+#term .bar{height:46px;background:#141a33;display:flex;align-items:center;gap:10px;padding:0 18px;color:#7d89b8;font-size:20px}
+#term .bar i{width:14px;height:14px;border-radius:50%;display:inline-block}
+#term pre{margin:0;padding:26px 32px;font-size:27px;line-height:1.7;color:#cfd6f5;white-space:pre-wrap}
+.ok{color:#4ade80}.add{color:#4ade80}.del{color:#f87171}.dim{color:#6b7599}.amb{color:#ffb454}
+#cap{position:fixed;left:0;right:0;bottom:70px;text-align:center;font-weight:600;font-size:54px;opacity:0}
+#cap em{font-style:normal;color:#ffb454}
+.s6{overflow:hidden}.rays{position:absolute;width:260vmax;height:260vmax;background:repeating-conic-gradient(from 0deg,#f2c14e26 0 6deg,transparent 6deg 18deg)}
+.t6a{font-weight:800;font-size:64px;letter-spacing:.12em;position:relative}.t6b{font-weight:900;font-size:270px;line-height:1;letter-spacing:-.01em;position:relative;margin-top:-6px;filter:drop-shadow(0 0 40px #f2c14e88)}
+.tag{position:relative;margin-top:34px;font-weight:500;font-size:34px;letter-spacing:.34em;color:var(--dim);text-transform:uppercase}
+.k{font-weight:700;font-size:30px;letter-spacing:.4em;color:var(--gold);margin-bottom:26px}
+.big{font-weight:900;font-size:138px;line-height:1.04;letter-spacing:-.015em;max-width:1700px}
+.sub{font-weight:300;font-size:44px;color:#c9d2ff;margin-top:34px;max-width:1400px;line-height:1.35}
+.flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none}
+.cmd{font-family:"DejaVu Sans Mono","Liberation Mono",monospace;font-size:54px;background:#050a3acc;border:2px solid var(--gold2);border-radius:18px;padding:22px 44px;color:#fff;margin-top:56px}
+.cmd b{color:var(--gold)}
+.fine{margin-top:34px;font-size:30px;color:#9fb0ff;letter-spacing:.08em}
+</style></head><body>
+<canvas id="bg" width="1920" height="1080"></canvas>
+<div class="L s1" id="s1"><div class="a" data-w>Your agent</div><div class="b" data-w>writes the code.</div></div>
+<div class="L s2" id="s2"><div class="a" id="wait">You wait.</div><div class="dots" id="dots"></div></div>
+<div class="L s3" id="s3"><div class="a" data-w>Meanwhile, your skills</div><div class="b" id="rust">rust.</div></div>
+<div class="L" id="s4"><div id="term"><div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i><span style="margin-left:14px">agent — working</span></div><pre id="termtxt"></pre></div></div>
+<div id="cap"></div>
+<div class="L s5" id="s5"><div class="a" data-w>What if the wait</div><div class="b"><span data-w>made you</span> <span class="gold w" id="sharper">sharper?</span></div></div>
+<div class="L s6" id="s6"><div class="rays" id="rays"></div><div class="t6a">WHO WANTS TO BE</div><div class="t6b gold">A DEV?</div><div class="tag">Stay sharp while your agent works</div></div>
+<div class="L" id="p1"><div class="k">01</div><div class="big gold">PREVENT<br>SKILL RUST.</div><div class="sub">Keep your language and your codebase knowledge sharp, even while the agent does the typing.</div></div>
+<div class="L" id="p2"><div class="k">02</div><div class="big gold">PROVE YOU OWN<br>YOUR CODE.</div><div class="sub">Every correct answer is proof that you understand what lives in your repo.</div></div>
+<div class="L" id="p3"><div class="k">03</div><div class="big gold">KNOW WHAT YOUR<br>AGENT SHIPS.</div><div class="sub">Ship with peace of mind: you know what it wrote, and why.</div></div>
+<div class="L" id="end"><div class="t6a" style="font-size:50px">WHO WANTS TO BE</div><div class="t6b gold" style="font-size:210px">A DEV?</div><div class="tag" style="margin-top:18px">A skill that keeps you in the loop</div><div class="cmd"><b>$</b> npm i -g quiz-dev</div><div class="fine">open source · AGPL-3.0 · github.com/leandrofus/who-wants-to-be-a-DEV</div></div>
+<div class="flash" id="flash"></div>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ease = (x) => 1 - Math.pow(1 - clamp(x), 3), easeIO = (x) => (x = clamp(x), x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const mix = (a, b, k) => a + (b - a) * clamp(k);
+const rnd = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }; // deterministic noise
+
+// ---------- 3D backdrop (same family as the game's stage), a pure function of t ----------
+const renderer = new THREE.WebGLRenderer({ canvas: $('bg'), antialias: true }); renderer.setSize(1920, 1080, false);
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(60, 16 / 9, 0.1, 100); cam.position.set(0, 0, 14);
+const stage = new THREE.Group(); scene.add(stage);
+const beams = [...Array(7)].map((_, i) => { const m = new THREE.Mesh(new THREE.ConeGeometry(2.2, 26, 32, 1, true), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); m.userData.p = i; stage.add(m); return m; });
+const rings = [0, 1, 2].map((i) => { const r = new THREE.Mesh(new THREE.TorusGeometry(9 + i * 4.5, 0.06, 8, 96), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })); r.position.z = -14 - i * 3; stage.add(r); return r; });
+const core = new THREE.Mesh(new THREE.IcosahedronGeometry(4, 1), new THREE.MeshBasicMaterial({ wireframe: true, transparent: true, opacity: 0 })); core.position.z = -16; stage.add(core);
+const N = 260, base = new Float32Array(N * 3), seed = [];
+for (let i = 0; i < N; i++) { base.set([(rnd(i) - .5) * 44, (rnd(i + 99) - .5) * 26, (rnd(i + 7) - .5) * 20 - 5], i * 3); seed.push(rnd(i + 3)); }
+const sparks = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: 0.09, transparent: true, opacity: 0.8 }));
+const pos = new Float32Array(N * 3); sparks.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3)); scene.add(sparks);
+const C = (h) => new THREE.Color(h);
+function backdrop(t, m) { // m = {col1,col2,energy,fall,bg}
+  renderer.setClearColor(C(m.bg), 1);
+  stage.rotation.y = Math.sin(t * .15) * .6; stage.rotation.z = t * .05;
+  beams.forEach((b) => { const p = b.userData.p; b.position.set((p - 3) * 5 + Math.sin(t * .3 + p) * 2, 12, -8); b.rotation.z = Math.sin(t * .5 + p) * .5; b.material.color = C(p % 2 ? m.col1 : m.col2); b.material.opacity = .035 + .1 * m.energy; });
+  rings.forEach((r, i) => { r.rotation.z = t * (.25 + i * .12) * (i % 2 ? -1 : 1); r.rotation.x = Math.sin(t * .3 + i) * .5; r.material.color = C(i % 2 ? m.col1 : m.col2); r.material.opacity = (.12 + .5 * m.energy) * (.9 - i * .2); });
+  core.rotation.x = t * .2; core.rotation.y = t * .3; core.material.color = C(m.col1); core.material.opacity = .06 + .25 * m.energy;
+  for (let i = 0; i < N; i++) { const s = seed[i]; pos[i * 3] = base[i * 3] + Math.sin(t * .3 + s * 9) * .6; pos[i * 3 + 1] = ((base[i * 3 + 1] - t * m.fall * (.4 + s) + 13) % 26 + 26) % 26 - 13; pos[i * 3 + 2] = base[i * 3 + 2]; }
+  sparks.geometry.attributes.position.needsUpdate = true; sparks.material.color = C(m.spark); sparks.material.opacity = .35 + .5 * m.energy;
+  cam.position.z = 14 + Math.sin(t * .2) * 1.5 - t * 0.02; renderer.render(scene, cam);
+}
+const MOODS = { night: { bg: 0x02030f, col1: 0x3a55ff, col2: 0x6a8bff, energy: .15, fall: 0, spark: 0x8aa0ff },
+  rust: { bg: 0x0d0503, col1: 0xc2561a, col2: 0x7a2e0c, energy: .3, fall: 1.4, spark: 0xff7a2a },
+  steel: { bg: 0x03060f, col1: 0x4a6a9a, col2: 0x2a3a5a, energy: .12, fall: 0, spark: 0x8aa0c0 },
+  hope: { bg: 0x040a30, col1: 0x6a8bff, col2: 0xf2c14e, energy: .55, fall: -.3, spark: 0xffe9a8 },
+  glory: { bg: 0x0a1260, col1: 0x6a8bff, col2: 0xf2c14e, energy: 1, fall: -.2, spark: 0xffe9a8 } };
+const lerpMood = (a, b, k) => { const o = {}; for (const key in a) o[key] = typeof a[key] === 'number' && key !== 'bg' && !/col|spark/.test(key) ? mix(a[key], b[key], k) : (() => { const ca = C(a[key]), cb = C(b[key]); return ca.lerp(cb, clamp(k)).getHex(); })(); return o; };
+
+// ---------- helpers ----------
+const layers = {}; ['s1', 's2', 's3', 's4', 's5', 's6', 'p1', 'p2', 'p3', 'end'].forEach((id) => (layers[id] = $(id)));
+document.querySelectorAll('[data-w]').forEach((el) => { el.innerHTML = el.textContent.split(' ').map((w) => `<span class="w">${w}</span>`).join(' '); });
+// layer visibility: fade in at a, hold, fade out at b
+function vis(id, t, a, b, fin = .5, fout = .5) { const o = clamp((t - a) / fin) * clamp((b - t) / fout); layers[id].style.opacity = o; layers[id].style.display = o > 0 ? 'flex' : 'none'; return o; }
+function words(id, t, a, step = .32, dur = .7) { layers[id].querySelectorAll('.w').forEach((w, i) => { const k = ease((t - a - i * step) / dur); w.style.opacity = k; w.style.transform = `translateY(${(1 - k) * 36}px) scale(${.96 + .04 * k})`; w.style.filter = `blur(${(1 - k) * 12}px)`; }); }
+const TERM = [[12.5, '<span class="dim">$</span> agent run "add refund flow to checkout"'], [13.9, '<span class="amb">●</span> Reading src/checkout/service.ts'], [14.8, '<span class="amb">●</span> Editing src/orders/refunds.ts  <span class="add">+84</span> <span class="del">−12</span>'], [15.7, '<span class="amb">●</span> Editing src/payments/webhook.ts  <span class="add">+37</span> <span class="del">−5</span>'], [16.6, '<span class="amb">●</span> Running tests…  <span class="ok">✔ 148 passed</span>'], [17.3, '<span class="amb">●</span> Writing db/migrations/0042_refunds.sql'], [17.9, '<span class="dim">✻ Working… 4m 12s</span>']];
+function typeAll(t) { let out = ''; for (const [t0, html] of TERM) { if (t < t0) break; const plain = html.replace(/<[^>]+>/g, ''); const n = Math.floor((t - t0) * 70); out += n >= plain.length ? html : (() => { let c = 0, o = '', tag = false; for (const ch of html) { if (ch === '<') tag = true; if (!tag) { if (c >= n) break; c++; } o += ch; if (ch === '>') tag = false; } return o; })(); out += '\n'; } return out + (Math.floor(t * 2) % 2 ? '█' : ' '); }
+
+// ---------- SEGMENT A (hook → problem → reveal), 0–27 s ----------
+function segA(t) {
+  let m = MOODS.night;
+  if (t > 7.4) m = lerpMood(MOODS.night, MOODS.rust, (t - 7.4) / .8);
+  if (t > 11.8) m = lerpMood(MOODS.rust, MOODS.steel, (t - 11.8) / .5);
+  if (t > 18.4) m = lerpMood(MOODS.steel, MOODS.hope, (t - 18.4) / 1.2);
+  if (t > 22.7) m = lerpMood(MOODS.hope, MOODS.glory, (t - 22.7) / .4);
+  m = { ...m, energy: m.energy * clamp(t / 2) };
+  backdrop(t, m);
+  vis('s1', t, 1.0, 4.4); words('s1', t, 1.2, .38, .8);
+  vis('s2', t, 4.8, 7.6, .8, .5);
+  const hb = Math.max(0, Math.sin(((t - 4.8) % 1) * Math.PI * 2 * 1.0) > .9 ? 1 : 0), beat = Math.exp(-(((t - 4.8) % 1) * 7)) + Math.exp(-((((t - 4.8) % 1) - .17 + 1) % 1 * 8)) * .6;
+  $('wait').style.transform = `scale(${1 + .03 * beat})`; $('wait').style.opacity = ease((t - 4.8) / .8);
+  $('dots').textContent = '.'.repeat(1 + Math.floor((t * 1.6) % 3));
+  vis('s3', t, 7.9, 11.9, .5, .5); words('s3', t, 8.0, .3, .6);
+  const rb = clamp((t - 9.2) / .5), rk = clamp((t - 10.0) / 1.2);
+  $('rust').style.opacity = ease((t - 9.1) / .4); $('rust').style.transform = `translate(${(rnd(Math.floor(t * 24)) - .5) * 8 * rk}px,${(rnd(Math.floor(t * 24) + 5) - .5) * 5 * rk}px) scale(${1.15 - .15 * rb})`;
+  $('rust').style.color = `rgb(${mix(244, 194, rk) | 0},${mix(246, 86, rk) | 0},${mix(255, 26, rk) | 0})`;
+  $('rust').style.textShadow = `0 0 ${20 + 40 * rk}px rgba(255,100,20,${.15 + .5 * rk})`; $('rust').style.letterSpacing = `${rk * -6}px`;
+  vis('s4', t, 12.2, 18.6, .6, .6); $('termtxt').innerHTML = typeAll(t); layers.s4.style.transform = `scale(${1 + (t - 12.2) * .004})`;
+  const cap = $('cap'); cap.innerHTML = 'You approve diffs you <em>can’t fully explain.</em>'; const co = clamp((t - 15.2) / .6) * clamp((18.4 - t) / .5); cap.style.opacity = co; cap.style.transform = `translateY(${(1 - ease((t - 15.2) / .6)) * 20}px)`; cap.style.display = t > 15 && t < 18.9 ? 'block' : 'none';
+  vis('s5', t, 18.9, 22.3, .5, .5); words('s5', t, 19.1, .3, .7);
+  const sh = clamp((t - 20.7) / .5); $('sharper').style.filter = `drop-shadow(0 0 ${60 * sh}px rgba(242,193,78,${.9 * sh}))`;
+  const o6 = vis('s6', t, 22.9, 99, .15, 1);
+  const k6 = clamp((t - 22.9) / 1.0); $('rays').style.opacity = clamp((t - 22.9) / .8) * .9; $('rays').style.transform = `rotate(${(t - 22.9) * 9}deg)`;
+  layers.s6.children[1].style.transform = `scale(${mix(.4, 1, ease(k6))}) rotate(${(1 - ease(k6)) * -6}deg)`; layers.s6.children[1].style.opacity = ease(k6 * 1.4);
+  layers.s6.children[2].style.transform = `scale(${mix(.2, 1, ease((t - 23.1) / .9))})`; layers.s6.children[2].style.opacity = ease((t - 23.1) / .5);
+  layers.s6.children[3].style.opacity = ease((t - 24.4) / .8); layers.s6.style.transform = `scale(${1 + Math.max(0, t - 23) * .006})`;
+  $('flash').style.opacity = t >= 22.9 ? Math.exp(-(t - 22.9) * 7) * .9 : 0;
+  const fadeIn = clamp(t / 1.0), fadeOut = clamp((27.0 - t) / .35); document.body.style.opacity = Math.min(fadeIn, fadeOut);
+}
+
+// ---------- SEGMENT B (the three promises + end card), 0–16 s ----------
+function segB(t) {
+  const m = lerpMood(MOODS.hope, MOODS.glory, .5 + .5 * Math.sin(t * .5)); backdrop(t + 30, { ...m, energy: .75 });
+  const P = [['p1', .3, 3.9], ['p2', 4.2, 7.8], ['p3, ', 0, 0]];
+  vis('p1', t, .3, 4.0, .35, .35); vis('p2', t, 4.2, 7.9, .35, .35); vis('p3', t, 8.1, 11.8, .35, .35);
+  for (const [id, a] of [['p1', .3], ['p2', 4.2], ['p3', 8.1]]) { const k = ease((t - a) / .6); const [kk, big, sub] = layers[id].children; kk.style.opacity = k; big.style.transform = `scale(${mix(1.18, 1, k)})`; big.style.opacity = k; big.style.filter = `blur(${(1 - k) * 14}px)`; sub.style.opacity = ease((t - a - .7) / .6); sub.style.transform = `translateY(${(1 - ease((t - a - .7) / .6)) * 16}px)`; }
+  const e = vis('end', t, 12.2, 99, .7, 1); const k = ease((t - 12.2) / .9); layers.end.style.transform = `scale(${mix(.94, 1, k)})`;
+  [...layers.end.children].forEach((c, i) => { const kk = ease((t - 12.3 - i * .35) / .6); c.style.opacity = kk; c.style.transform = `translateY(${(1 - kk) * 22}px)`; });
+  document.body.style.opacity = Math.min(clamp(t / .4), clamp((16.0 - t) / .8));
+  $('flash').style.opacity = [.3, 4.2, 8.1, 12.2].reduce((s, a) => s + (t >= a ? Math.exp(-(t - a) * 9) * .35 : 0), 0);
+}
+window.seek = (seg, t) => { (seg === 'a' ? segA : segB)(t); return true; };
+window.ready = true;
+</script></body></html>

@@ -25,6 +25,14 @@ const CATEGORIES = [
   { id: 'design', label: 'the responsibility of a module or a design decision that can be inferred from the SNIPPET and the FILES list' },
 ];
 
+// PR review mode: questions about the change set the user sent, instead of topics.
+const PR_CATEGORIES = [
+  { id: 'pr', label: 'what the PR change does: the exact behavior of the new/changed lines for a specific input or state' },
+  { id: 'pr', label: 'a bug, edge case or regression risk a reviewer should catch in the PR change (ask what happens in a concrete case)' },
+  { id: 'pr', label: 'why the PR change was needed / what would break or behave differently without it' },
+  { id: 'pr', label: 'the effect of the PR change on callers or on other behavior, as far as the visible diff and context show' },
+];
+
 const LANGS = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', zh: 'Chinese', ja: 'Japanese' };
 const langState = { code: 'en' };
 
@@ -126,6 +134,53 @@ function repoContext(cwd, sel) {
   return { top: path.basename(cwd), file: f, near, files: pool.slice(0, 40).join('\n'), log, diff, snippet };
 }
 
+// ---- PR review: base branch, title and diff of the branch the user is sending
+const gitL = (cwd, ...a) => { try { return execFileSync('git', a, { cwd, encoding: 'utf8', timeout: 10000, maxBuffer: 16e6 }); } catch { return ''; } };
+const prCache = new Map();
+function prInfo(cwd) {
+  const hit = prCache.get(cwd);
+  if (hit && Date.now() - hit.at < 30000) return hit.v;
+  const v = { ok: false, branch: '', base: '', title: '', body: '', number: 0, head: '', files: [] };
+  if (cwd && fs.existsSync(cwd)) {
+    v.branch = git(cwd, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
+    v.head = git(cwd, 'rev-parse', 'HEAD').trim();
+    try { // PR de GitHub si hay gh
+      const j = JSON.parse(execFileSync('gh', ['pr', 'view', '--json', 'number,title,body,baseRefName'], { cwd, encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'ignore'] }));
+      v.number = j.number; v.title = j.title || ''; v.body = (j.body || '').slice(0, 1200); v.base = j.baseRefName || '';
+    } catch {}
+    const cands = [v.base && 'origin/' + v.base, v.base, git(cwd, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD').trim(), 'origin/main', 'origin/master', 'main', 'master'].filter(Boolean);
+    let range = '';
+    for (const b of cands) {
+      if (b === v.branch || !git(cwd, 'rev-parse', '--verify', '-q', b).trim()) continue;
+      if (gitL(cwd, 'diff', '--name-only', `${b}...HEAD`).trim()) { v.base = b; range = `${b}...HEAD`; break; }
+    }
+    if (!range && v.head) { range = 'HEAD~1..HEAD'; v.base = 'HEAD~1'; if (!v.title) v.title = git(cwd, 'log', '-1', '--pretty=%s').trim(); } // sin rama: último commit
+    v.range = range;
+    v.files = range ? gitL(cwd, 'diff', '--numstat', range).split('\n').filter(Boolean).map((l) => { const [a, d, ...f] = l.split('\t'); return { f: f.join('\t'), add: +a || 0, del: +d || 0 }; }).filter((x) => x.f && !SKIP.test(x.f)) : [];
+    if (!v.title && v.branch) v.title = v.branch;
+    v.ok = v.files.length > 0;
+  }
+  prCache.set(cwd, { at: Date.now(), v });
+  return v;
+}
+function prContext(cwd) {
+  const pr = prInfo(cwd);
+  if (!pr.ok) return null;
+  const total = pr.files.reduce((n, x) => n + x.add + x.del, 0) || 1;
+  let r = Math.random() * total, pick = pr.files[0];
+  for (const x of pr.files) { r -= x.add + x.del || 1; if (r <= 0) { pick = x; break; } } // ponderado por tamaño del cambio
+  const full = gitL(cwd, 'diff', '-U6', pr.range, '--', pick.f);
+  const hunks = full.split(/\n(?=@@ )/); // elige un hunk al azar y lo completa hasta ~3500 chars
+  const h0 = hunks[0].startsWith('@@') ? 0 : 1;
+  const start = h0 + Math.floor(Math.random() * Math.max(1, hunks.length - h0));
+  let diff = hunks.slice(start).join('\n').slice(0, 3500);
+  if (start > h0 || h0) diff = `${pick.f} (diff excerpt):\n` + diff;
+  let after = '';
+  try { const L = fs.readFileSync(path.join(cwd, pick.f), 'utf8').split('\n'); after = L.slice(0, 14).join('\n'); } catch {}
+  const stat = pr.files.slice(0, 30).map((x) => `${x.f} +${x.add} -${x.del}`).join('\n');
+  return { top: path.basename(cwd), file: pick.f, pr, stat, diff, after, near: '', files: '', log: '', snippet: '' };
+}
+
 // ---- preferencias de temática por repo (persisten en prefs.json)
 fs.mkdirSync(dataDir(), { recursive: true });
 const PREFS = path.join(dataDir(), 'prefs.json');
@@ -144,10 +199,11 @@ let lastError = '', provider = '';
 const active = () => sessions.get(activeId);
 function effectiveSel(s) {
   const p = prefs[s.cwd];
+  if (p?.mode === 'pr') return { areas: [], focus: [], manual: true, pr: true, head: prInfo(s.cwd).head };
   if (p) return { areas: cleanList(p.areas).filter((a) => AREAS[a]), focus: cleanList(p.focus), manual: true };
   return { areas: s.auto === 'general' ? [] : [s.auto], focus: [], manual: false };
 }
-const labelOf = (sel) => (sel.manual ? '' : 'auto: ') + ([sel.areas.join('+') || 'all', ...(sel.focus.length ? ['«' + sel.focus.join(', ') + '»'] : [])].join(' · '));
+const labelOf = (sel) => sel.pr ? 'PR review' : (sel.manual ? '' : 'auto: ') + ([sel.areas.join('+') || 'all', ...(sel.focus.length ? ['«' + sel.focus.join(', ') + '»'] : [])].join(' · '));
 
 function broadcast() {
   const s = active();
@@ -155,9 +211,38 @@ function broadcast() {
   for (const c of clients) c.write(msg);
 }
 
+function buildPrPrompt(cat, rc, sess) {
+  const lang = LANGS[langState.code];
+  const pr = rc.pr;
+  return `Write ONE multiple-choice question in ${lang}, ${cfg.difficulty} level, about the player's own PULL REQUEST: ${cat.label}.
+The player is waiting for a coding agent. The goal is to check that they truly understand the change they are about to ship (code they wrote or accepted from an agent), not to quiz them on trivia.
+
+PR: ${pr.number ? '#' + pr.number + ' ' : ''}${pr.title}  (branch ${pr.branch} -> ${pr.base})
+${pr.body ? 'DESCRIPTION:\n' + pr.body + '\n' : ''}
+FILES CHANGED:
+${rc.stat}
+
+DIFF EXCERPT (lines starting with + were added, - removed):
+${rc.diff}
+
+${rc.after ? 'TOP OF ' + rc.file + ':\n' + rc.after + '\n' : ''}
+Reply with VALID JSON only, no markdown, in exactly this shape (keep the key order):
+{"category":"pr","file":"${rc.file}","context":"...","code":"","question":"...","reasoning":"...","options":["A","B","C","D"],"answer":0,"explanation":"1-2 sentences"}
+All human-readable text values (context, question, options, explanation) MUST be written in ${lang}. Keep code, identifiers and file paths as they are.
+Rules:
+- SELF-CONTAINED: solvable from "context" + "code" + "question" alone. The player CANNOT see the repo or the diff beyond what you copy into "code".
+- "code": the relevant changed lines copied verbatim from the DIFF EXCERPT (keep the +/- markers, 4-25 lines); required.
+- CONCRETE: set a specific input/state and ask what happens in THAT case with the new code (or what the old code did differently). No abstract questions ("is this a good change?", "what could be improved?").
+- If the code depends on things not shown, state their exact behavior in "context".
+- Before writing the options, solve the question step by step in "reasoning" using ONLY what is visible. If you cannot reach a single certain answer, ask a different question that you can.
+- Exactly 4 short, distinct options; "answer" is the index (0-3) of the correct one; only one correct; distractors come from typical misreadings of the diff.
+- Do not ask about commit metadata, file names or line numbers.`;
+}
+
 function buildPrompt(cat, rc, sess) {
   const sel = effectiveSel(sess);
   const lang = LANGS[langState.code];
+  if (sel.pr) return buildPrPrompt(cat, rc, sess);
   const ctx = rc
     ? `Active repo: ${rc.top}\nTOPIC: ${labelOf(sel)}\n\nFILES IN TOPIC:\n${rc.files}\n\nSIBLING FILES OF ${rc.file}:\n${rc.near}\n\nRECENT COMMITS:\n${rc.log || '(none)'}\n\nUNCOMMITTED CHANGES:\n${rc.diff || '(none)'}\n\nSNIPPET:\n${rc.snippet}`
     : `(no active repo yet: ask a general question about ${cfg.language} and ${cfg.extraTopics.join(', ')})`;
@@ -230,8 +315,11 @@ function parseQuestion(text, cat, sess, rc) {
 }
 
 async function generate(sess) {
-  const cat = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
-  const rc = repoContext(sess.cwd, effectiveSel(sess));
+  const sel = effectiveSel(sess);
+  const list = sel.pr ? PR_CATEGORIES : CATEGORIES;
+  const cat = list[Math.floor(Math.random() * list.length)];
+  const rc = sel.pr ? prContext(sess.cwd) : repoContext(sess.cwd, sel);
+  if (sel.pr && !rc) throw new Error('PR review: no changes found against the base branch (commit your work on a branch first)');
   const prompt = buildPrompt(cat, rc, sess);
   const order = cfg.provider === 'ollama' ? ['ollama']
     : cfg.provider === 'anthropic' ? ['anthropic']
@@ -283,6 +371,7 @@ function onStart(e) {
 function applyTheme(body) {
   const s = active(); if (!s) return;
   if (body.auto) delete prefs[s.cwd];
+  else if (body.pr) prefs[s.cwd] = { mode: 'pr' };
   else prefs[s.cwd] = { areas: cleanList(body.areas).filter((a) => AREAS[a]), focus: cleanList(body.focus) };
   savePrefs();
   s.sig = sigOf(s); s.epoch++; s.queue.length = 0; s.failed = 0;
@@ -309,7 +398,7 @@ http.createServer(async (req, res) => {
     const sess = active(), areas = cleanList((url.searchParams.get('areas') || '').split(','));
     const sel = effectiveSel(sess);
     res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({ lang: langState.code, langs: LANGS, repo: path.basename(sess.cwd || '') || '(no repo)', areas: Object.keys(AREAS), auto: sess.auto, manual: sel.manual, sel, features: sess.cwd ? discoverFeatures(sess.cwd, areas.filter((a) => AREAS[a])) : [] }));
+    return res.end(JSON.stringify({ lang: langState.code, langs: LANGS, repo: path.basename(sess.cwd || '') || '(no repo)', areas: Object.keys(AREAS), auto: sess.auto, manual: sel.manual, pr: !!sel.pr, prinfo: (({ ok, branch, base, title, number, files }) => ({ ok, branch, base, title, number, files: files.length }))(prInfo(sess.cwd)), sel, features: sess.cwd ? discoverFeatures(sess.cwd, areas.filter((a) => AREAS[a])) : [] }));
   }
   if (url.pathname === '/api/lang' && req.method === 'POST') {
     let body = ''; for await (const c of req) body += c;

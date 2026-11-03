@@ -63,6 +63,8 @@ A full queue is roughly 10–15 calls. They count against your Claude usage like
 
 ## Controls
 
+**PR review mode:** in the topics dialog (`T`) pick *PR review* instead of topics. Questions are then generated from the diff of your current branch against its base (the open GitHub PR if `gh` is available, otherwise `origin/main`/`master`; with no branch changes, the last commit). The point: prove you understand what you are about to ship.
+
 `A–D` / `1–4` or click: answer · `Enter`: confirm · `F`: 50:50 · `P`: pass · `T`: choose topics.
 
 ## Platforms
