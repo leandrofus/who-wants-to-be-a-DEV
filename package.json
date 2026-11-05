@@ -1,6 +1,6 @@
 {
   "name": "quiz-dev",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A 'Who Wants to Be a Millionaire' style quiz about YOUR repo, to play while your coding agent (Claude Code) is working.",
   "keywords": [
     "claude-code",

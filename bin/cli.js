@@ -41,14 +41,13 @@ async function start() {
   try {
     const r = await fetch(URL_() + '/api/event', {
       method: 'POST',
-      body: JSON.stringify({ type: 'repo', cwd: process.cwd() }),
+      body: JSON.stringify({ type: 'repo', cwd: process.cwd(), session: 'cli' }), // adopt the folder `quiz-dev start` ran in
       signal: AbortSignal.timeout(1500),
     });
     if (!r.ok) throw new Error(`server returned ${r.status}`);
   } catch (e) {
     console.error(`Could not select the current folder as the quiz repo: ${e.message}`);
   }
-  try { await fetch(URL_() + '/api/event', { method: 'POST', body: JSON.stringify({ type: 'repo', cwd: process.cwd(), session: 'cli' }), signal: AbortSignal.timeout(1500) }); } catch {} // adopt the folder `quiz-dev start` ran in
   if (!flags.has('--no-open')) openBrowser(URL_());
 }
 
@@ -70,9 +69,9 @@ async function notify(kind) {
   const agent = AGENT[opt('--agent')] ? opt('--agent') : 'claude';
   const body = kind === 'start'
     ? { type: 'start', prompt: String(p.prompt || '').slice(0, 600), cwd: p.cwd || (p.workspacePaths || [])[0] || '', session: p.session_id || p.conversationId || '' }
-    : { type: 'stop' };
+    : { type: 'stop', cwd: p.cwd || (p.workspacePaths || [])[0] || '', session: p.session_id || p.conversationId || '' };
   try { await fetch(URL_() + '/api/event', { method: 'POST', body: JSON.stringify(body), signal: AbortSignal.timeout(1000) }); } catch {}
-  if (kind === 'stop') desktopNotify('Agent ready ✔', AGENT[agent] + ' finished its response');
+  if (kind === 'stop') desktopNotify('Agent ready ✔', AGENT[agent] + ' finished its response' + (body.cwd ? ' in ' + path.basename(body.cwd) : ''));
 }
 
 function desktopNotify(title, text) {
@@ -154,6 +153,7 @@ const HELP = `quiz-dev ${pkg.version} — a quiz game to play while your coding 
                                (default: every agent detected on this machine; --dry-run, --skill-only)
   quiz-dev uninstall [target]  remove them
   quiz-dev config              print the config file path
+  quiz-dev logs [-f] [-n N]    show the server log (-f follows, default last 50 lines)
 `;
 switch (cmd) {
   case 'start': await start(); break;
@@ -162,6 +162,14 @@ switch (cmd) {
   case 'notify': await notify(pos[0]); break;
   case 'install': install(false, pos[0]); break;
   case 'uninstall': install(true, pos[0]); break;
+  case 'logs': {
+    const f = path.join(DATA, 'server.log');
+    if (!fs.existsSync(f)) { console.log('No log yet: ' + f); break; }
+    const ni = process.argv.indexOf('-n'); const n = ni > 0 ? Number(process.argv[ni + 1]) || 50 : 50;
+    console.log(fs.readFileSync(f, 'utf8').trimEnd().split('\n').slice(-n).join('\n'));
+    if (process.argv.includes('-f')) { let pos = fs.statSync(f).size; setInterval(() => { try { const sz = fs.statSync(f).size; if (sz < pos) pos = 0; if (sz > pos) { const b = Buffer.alloc(sz - pos); const fd = fs.openSync(f, 'r'); fs.readSync(fd, b, 0, b.length, pos); fs.closeSync(fd); process.stdout.write(b); pos = sz; } } catch {} }, 500); }
+    break;
+  }
   case 'config': console.log(path.join(DATA, 'config.json')); break;
   case '-v': case '--version': console.log(pkg.version); break;
   default: console.log(HELP);
