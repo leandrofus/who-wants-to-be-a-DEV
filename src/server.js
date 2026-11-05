@@ -17,6 +17,17 @@ const readJson = (f, d = {}) => { try { return JSON.parse(fs.readFileSync(f, 'ut
 // defaults shipped with the package + user overrides in the per-user config dir
 const cfg = { ...readJson(path.join(root, 'src', 'defaults.json')), ...readJson(path.join(dataDir(), 'config.json')) };
 const PORT = Number(process.env.PORT || cfg.port);
+
+// File log (the server runs detached with stdio ignored). Truncated when it grows past 1 MB.
+const LOG_FILE = path.join(dataDir(), 'server.log');
+function log(level, msg, extra) {
+  try {
+    if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > 1e6) fs.renameSync(LOG_FILE, LOG_FILE + '.1');
+    fs.appendFileSync(LOG_FILE, `${new Date().toISOString()} ${level.padEnd(5)} ${msg}${extra ? '\n  ' + String(extra).slice(0, 1500).replace(/\n/g, '\n  ') : ''}\n`);
+  } catch {}
+}
+process.on('uncaughtException', (e) => log('FATAL', 'uncaughtException: ' + e.message, e.stack));
+process.on('unhandledRejection', (e) => log('ERROR', 'unhandledRejection: ' + (e?.message || e), e?.stack));
 const PREFETCH = Math.max(1, Math.min(10, Math.floor(Number(cfg.prefetch) || 10)));
 
 const CATEGORIES = [
@@ -208,6 +219,13 @@ const selectedProvider = () => {
 const sessions = new Map();
 let activeId = null;
 const state = { agent: 'idle', since: Date.now() };
+const WORKING_TTL = 30 * 60 * 1000; // a lost Stop hook must not leave a session "working" forever
+const isWorking = (x) => x.working && Date.now() - x.workingSince < WORKING_TTL;
+function refreshAgent() { // global pill = any agent session still working
+  const any = [...sessions.values()].some(isWorking);
+  const next = any ? 'working' : 'idle';
+  if (next !== state.agent) { state.agent = next; state.since = Date.now(); }
+}
 const clients = new Set();
 let lastError = '', provider = '';
 const active = () => sessions.get(activeId);
@@ -241,15 +259,15 @@ const labelOf = (sel) => sel.pr ? 'PR review' : (sel.manual ? '' : 'auto: ') + (
 
 function broadcast() {
   const s = active();
-  const msg = `data: ${JSON.stringify({ agent: state.agent, since: state.since, provider, error: lastError, theme: s ? labelOf(effectiveSel(s)) : '', ready: s?.queue.length || 0, target: PREFETCH })}\n\n`;
+  const msg = `data: ${JSON.stringify({ agent: state.agent, since: state.since, repo: s?.cwd ? path.basename(s.cwd) : '', provider, error: lastError, theme: s ? labelOf(effectiveSel(s)) : '', ready: s?.queue.length || 0, target: PREFETCH })}\n\n`;
   for (const c of clients) c.write(msg);
 }
 
-function buildPrPrompt(rc, sess) {
+function buildPrPrompt(rc, sess, n) {
   const lang = LANGS[langState.code];
   const pr = rc.pr;
   const angles = PR_CATEGORIES.map((cat) => `- ${cat.label}`).join('\n');
-  return `Write exactly ${PREFETCH} different multiple-choice questions in ${lang}, ${cfg.difficulty} level, about the player's own PULL REQUEST.
+  return `Write exactly ${n} different multiple-choice questions in ${lang}, ${cfg.difficulty} level, about the player's own PULL REQUEST.
 The player is waiting for a coding agent. The goal is to check that they truly understand the change they are about to ship (code they wrote or accepted from an agent), not to quiz them on trivia.
 Vary the questions across these review angles:
 ${angles}
@@ -267,7 +285,7 @@ Reply with VALID JSON only, no markdown, in exactly this shape:
 {"file":"${rc.file}","context":"shared context that makes the excerpt understandable","code":"relevant changed lines copied verbatim from the diff","questions":[{"category":"pr","question":"...","reasoning":"...","options":["A","B","C","D"],"answer":0,"explanation":"1-2 sentences"}]}
 The batch-level "context" and "code" are shared by every question. All human-readable text values (context, question, options, explanation) MUST be written in ${lang}. Keep code, identifiers and file paths as they are.
 Rules:
-- Return exactly ${PREFETCH} questions in the "questions" array. Every question must be distinct and self-contained using the shared "context" + "code" and its "question". The player CANNOT see the repo or the diff beyond what you copy into "code".
+- Return exactly ${n} questions in the "questions" array. Every question must be distinct and self-contained using the shared "context" + "code" and its "question". The player CANNOT see the repo or the diff beyond what you copy into "code".
 - "code": relevant changed lines copied verbatim from the DIFF EXCERPT (keep the +/- markers, 4-15 lines); required.
 - CONCRETE: set a specific input/state and ask what happens in THAT case with the new code (or what the old code did differently). No abstract questions ("is this a good change?", "what could be improved?").
 - If the code depends on things not shown, state their exact behavior in "context".
@@ -277,15 +295,15 @@ Rules:
 - Do not ask about commit metadata, file names or line numbers.`;
 }
 
-function buildPrompt(rc, sess) {
+function buildPrompt(rc, sess, n) {
   const sel = effectiveSel(sess);
   const lang = LANGS[langState.code];
-  if (sel.pr) return buildPrPrompt(rc, sess);
+  if (sel.pr) return buildPrPrompt(rc, sess, n);
   const categories = CATEGORIES.map((item) => `- ${item.id}: ${item.label}`).join('\n');
   const ctx = rc
     ? `Active repo: ${rc.top}\nTOPIC: ${labelOf(sel)}\n\nFILES IN TOPIC:\n${rc.files}\n\nSIBLING FILES OF ${rc.file}:\n${rc.near}\n\nRECENT COMMITS:\n${rc.log || '(none)'}\n\nUNCOMMITTED CHANGES:\n${rc.diff || '(none)'}\n\nSNIPPET:\n${rc.snippet}`
     : `(no active repo yet: ask a general question about ${cfg.language} and ${cfg.extraTopics.join(', ')})`;
-  return `Write exactly ${PREFETCH} different multiple-choice questions in ${lang}, ${cfg.difficulty} level, about the player's current repo and topic.
+  return `Write exactly ${n} different multiple-choice questions in ${lang}, ${cfg.difficulty} level, about the player's current repo and topic.
 The player is waiting for a coding agent working on this repo and wants to stay sharp on the language and on development. Current TOPIC: ${labelOf(sel)} (stay within it${sel.focus.length ? `; the questions must be about the "${sel.focus.join(', ')}" functionality of the repo` : ''}).
 Vary the questions across these categories:
 ${categories}
@@ -297,7 +315,7 @@ Reply with VALID JSON only, no markdown, in exactly this shape:
 {"file":"path/to/file","context":"shared context that makes the snippet understandable","code":"relevant snippet lines","questions":[{"category":"code","question":"...","reasoning":"...","options":["A","B","C","D"],"answer":0,"explanation":"1-2 sentences"}]}
 The batch-level "context" and "code" are shared by every question. All human-readable text values (context, question, options, explanation) MUST be written in ${lang}. Keep code, identifiers and file paths as they are.
 Rules:
-- Return exactly ${PREFETCH} questions in the "questions" array. Every question must be distinct and self-contained using the shared "context" + "code" and its "question". The player CANNOT see the repo.
+- Return exactly ${n} questions in the "questions" array. Every question must be distinct and self-contained using the shared "context" + "code" and its "question". The player CANNOT see the repo.
 - CONCRETE: always set a specific scenario inside the question (a particular input, state or return value) and ask what happens in THAT case. Abstract questions are forbidden ("what happens with error handling?", "is this design correct?", "what would you improve?").
 - If the code calls functions, types or constants that are not in "code", describe their exact behavior in "context" (what they return, when they fail, with which values). Never depend on something the player cannot see.
 - Before writing the options, solve each question step by step in "reasoning" using ONLY what is visible. If you cannot reach a single certain answer, replace that question with one that can be solved.
@@ -326,9 +344,14 @@ function viaCli(command, args, prompt, name) {
       { cwd: os.tmpdir(), env: { ...process.env, QUIZ_GEN: '1' }, shell: win, windowsHide: true });
     let out = '', err = '';
     let settled = false;
+    const t0 = Date.now();
+    log('INFO', `${name}: spawned (prompt ${prompt.length} chars)`);
     const finish = (error, value) => {
       if (settled) return;
       settled = true; clearTimeout(timer);
+      const ms = Date.now() - t0;
+      if (error) log('ERROR', `${name}: failed after ${ms}ms: ${error.message}`, (err ? 'stderr: ' + err.slice(0, 600) + '\n' : '') + (out ? 'stdout: ' + out.slice(0, 600) : ''));
+      else log('INFO', `${name}: ok in ${ms}ms (${out.length} chars out)`);
       error ? reject(error) : resolve(value);
     };
     const timer = setTimeout(() => { p.kill(); finish(new Error(`${name} timeout`)); }, cfg.cliTimeoutMs || 240000);
@@ -384,6 +407,7 @@ function parseQuestion(question, categories, shared, sess, rc) {
     throw new Error('invalid question shape');
   }
   const q = { ...question };
+  if (categories === PR_CATEGORIES) q.category = 'pr'; // PR angles share one id; the model only sees labels
   const category = categories.find((item) => item.id === q.category);
   if (!category) throw new Error(`invalid category: ${q.category}`);
   q.options = q.options.map(String);
@@ -418,30 +442,35 @@ function balanceAnswerPositions(questions) {
   return questions;
 }
 
-async function generateBatch(sess, epoch) {
+async function generateBatch(sess, epoch, n = PREFETCH) {
   const sel = effectiveSel(sess);
   const categories = sel.pr ? PR_CATEGORIES : CATEGORIES;
   const rc = sel.pr ? prContext(sess.cwd) : repoContext(sess.cwd, sel);
   if (sel.pr && !rc) throw new Error('PR review: no changes found against the base branch (commit your work on a branch first)');
-  const prompt = buildPrompt(rc, sess);
+  const prompt = buildPrompt(rc, sess, n);
   const choice = selectedProvider();
   const order = choice === 'auto' ? [process.env.ANTHROPIC_API_KEY && 'anthropic', 'claude-cli', 'ollama'].filter(Boolean)
     : [choice]
   const generators = { anthropic: viaAnthropic, 'claude-cli': viaClaudeCli, antigravity: viaAntigravityCli, codex: viaCodexCli, ollama: viaOllama };
   let err;
+  log('INFO', `batch: start n=${n} theme="${labelOf(sel)}" cwd=${sess.cwd} providers=${order.join('>')}`);
+  const tb = Date.now();
   for (const p of order) {
+    let text = '';
     try {
-      const text = await generators[p](prompt);
+      text = await generators[p](prompt);
       const m = text.match(/\{[\s\S]*\}/);
       const batch = JSON.parse(m ? m[0] : text);
-      if (!Array.isArray(batch.questions) || batch.questions.length !== PREFETCH) {
-        throw new Error(`invalid batch size: expected ${PREFETCH}, received ${batch.questions?.length || 0}`);
+      if (!Array.isArray(batch.questions) || batch.questions.length !== n) {
+        throw new Error(`invalid batch size: expected ${n}, received ${batch.questions?.length || 0}`);
       }
       const questions = balanceAnswerPositions(batch.questions.map((q) => parseQuestion(q, categories, batch, sess, rc)));
       if (epoch === sess.epoch) { provider = p; lastError = ''; }
+      log('INFO', `batch: ${questions.length} questions via ${p} in ${Date.now() - tb}ms${epoch === sess.epoch ? '' : ' (stale, discarded)'}`);
       return questions;
-    } catch (e) { err = e; }
+    } catch (e) { err = e; log('WARN', `batch: provider ${p} rejected: ${e.message}`, text && !/^(claude|agy|codex)/.test(e.message) ? 'raw: ' + text.slice(0, 800) : ''); }
   }
+  log('ERROR', `batch: all providers failed: ${err?.message || err}`);
   if (epoch === sess.epoch) lastError = String(err?.message || err);
   throw err;
 }
@@ -451,12 +480,16 @@ async function generateBatch(sess, epoch) {
 function fill() {
   const sess = active();
   if (!sess) return Promise.resolve();
-  if (sess.queue.length || sess.inflight.size) return Promise.race([...sess.inflight, Promise.resolve()]);
+  if (sess.madeFor !== sess.epoch) { sess.madeFor = sess.epoch; sess.made = 0; }
+  // Time-to-first-question: a small first batch, then top up to a full round in the background.
+  const FIRST = Math.min(3, PREFETCH);
+  if (sess.inflight.size || (sess.queue.length && sess.made >= PREFETCH)) return Promise.race([...sess.inflight, Promise.resolve()]);
+  const n = sess.made === 0 ? FIRST : sess.made < PREFETCH ? PREFETCH - sess.made : PREFETCH;
   const epoch = sess.epoch;
-  const p = generateBatch(sess, epoch).then((questions) => {
-    if (epoch === sess.epoch) { sess.queue.push(...questions); broadcast(); }
+  const p = generateBatch(sess, epoch, n).then((questions) => {
+    if (epoch === sess.epoch) { sess.queue.push(...questions); sess.made += questions.length; broadcast(); }
   }).catch((e) => {
-    if (epoch === sess.epoch) { console.error('[gen]', e.message); sess.failed = Date.now(); }
+    if (epoch === sess.epoch) { log('WARN', `fill: retry in 15s after: ${e.message}`); sess.failed = Date.now(); }
   }).finally(() => {
     sess.inflight.delete(p);
     if (!sess.failed || Date.now() - sess.failed > 15000) fill(); else broadcast();
@@ -466,7 +499,7 @@ function fill() {
 }
 
 const sigOf = (s) => JSON.stringify(effectiveSel(s));
-function onStart(e) {
+function onStart(e, { fillNow = true, force = false } = {}) {
   const id = e.session || e.cwd || 'default';
   let s = sessions.get(id);
   if (!s) { s = { id, cwd: '', auto: 'general', sig: '', prompts: [], queue: [], inflight: new Set(), epoch: 0, failed: 0 }; sessions.set(id, s); }
@@ -476,8 +509,23 @@ function onStart(e) {
   s.auto = detectTheme(s.cwd, s.prompts);
   const sig = sigOf(s);
   if (sig !== s.sig) { s.sig = sig; s.epoch++; s.queue.length = 0; } // otro tema: preguntas viejas fuera
-  activeId = id; s.failed = 0;
-  fill();
+  s.failed = 0;
+  // Several agents in different repos: do not steal the game from a session that is still working.
+  const cur = active();
+  if (force || !cur || cur === s || !isWorking(cur)) { if (activeId !== id) log('INFO', `active session -> ${id} (${s.cwd})`); activeId = id; if (fillNow) fill(); }
+  else log('INFO', `session ${id} (${s.cwd}) started while ${cur.id} (${cur.cwd}) is active and working: not switching`);
+}
+
+function onStop(e) {
+  const x = sessions.get(e.session || e.cwd || '');
+  if (x) x.working = false;
+  else for (const y of sessions.values()) if (y.working && !e.session) y.working = false; // legacy Stop without session id
+  // if the active session finished and another one is still working, follow that one
+  const cur = active();
+  if (cur && !isWorking(cur)) {
+    const next = [...sessions.values()].filter(isWorking).sort((a, b) => b.workingSince - a.workingSince)[0];
+    if (next) { log('INFO', `active session finished -> following ${next.id} (${next.cwd})`); activeId = next.id; fill(); }
+  }
 }
 
 function applyTheme(body) {
@@ -581,9 +629,11 @@ http.createServer(async (req, res) => {
     let body = ''; for await (const c of req) body += c;
     try {
       const e = JSON.parse(body || '{}');
-      if (e.type === 'start') { state.agent = 'working'; state.since = Date.now(); onStart(e); }
-      if (e.type === 'repo' && e.cwd) { onStart({ cwd: e.cwd, session: e.session || 'cli' }); }
-      if (e.type === 'stop') { state.agent = 'idle'; state.since = Date.now(); }
+      log('INFO', `event: ${e.type} session=${e.session || '-'} cwd=${e.cwd || '-'}`);
+      if (e.type === 'start') { onStart(e); const x = sessions.get(e.session || e.cwd || 'default'); if (x) { x.working = true; x.workingSince = Date.now(); } }
+      if (e.type === 'repo' && e.cwd) { onStart({ cwd: e.cwd, session: e.session || 'cli' }, { force: true }); }
+      if (e.type === 'stop') onStop(e);
+      refreshAgent();
     } catch {}
     broadcast(); res.writeHead(204); return res.end();
   }
@@ -592,4 +642,4 @@ http.createServer(async (req, res) => {
   if (!file.startsWith(path.join(root, 'public')) || !fs.existsSync(file)) { res.writeHead(404); return res.end('no'); }
   res.writeHead(200, { 'content-type': mime[path.extname(file)] || 'application/octet-stream' });
   fs.createReadStream(file).pipe(res);
-}).listen(PORT, '127.0.0.1', () => { console.log(`Quiz runner en http://localhost:${PORT}`); onStart({ cwd: initialRepo, session: 'default' }); });
+}).listen(PORT, '127.0.0.1', () => { log('INFO', `server up on :${PORT} pid=${process.pid} provider=${cfg.provider} lang=${langState.code}`); console.log(`Quiz runner en http://localhost:${PORT}`); onStart({ cwd: initialRepo, session: 'default' }, { fillNow: false }); });

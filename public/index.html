@@ -91,7 +91,14 @@ select{background:#02041c;border:1px solid var(--gold2);border-radius:8px;color:
 .hex.qin::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 38%,#fffb 50%,transparent 62%);transform:translateX(-130%);animation:sweep 1.1s .35s ease-out forwards}
 @keyframes qin{0%{transform:scale(.55);opacity:0;filter:brightness(4)}60%{opacity:1;filter:brightness(1.6)}100%{transform:scale(1);opacity:1;filter:none}}
 @keyframes sweep{to{transform:translateX(130%)}}
-#cat.qin,#ctx.qin,#code.qin{animation:fup .6s .1s backwards}
+#diff{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:34vh}
+#diff .pane{background:#02041ccc;border:1px solid #2a3aa8;border-radius:10px;overflow:auto;font:.9em/1.45 ui-monospace,Menlo,Consolas,monospace}
+#diff .ph{position:sticky;top:0;padding:4px 14px;font:700 .75em system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);background:#050a3aee}
+#diff .ph.new{color:#7be39a}#diff .ph.old{color:#ff8a98}
+#diff .ln{padding:0 14px;white-space:pre;min-height:1.45em}
+#diff .ln.del{background:#e5334b2e;color:#ffb3bc}#diff .ln.add{background:#2fbf6b2e;color:#b6f5cb}#diff .ln.gap{background:#ffffff08}
+@media(max-width:900px){#diff{grid-template-columns:1fr}}
+#cat.qin,#ctx.qin,#code.qin,#diff.qin{animation:fup .6s .1s backwards}
 @keyframes fup{from{opacity:0;transform:translateY(14px)}}
 .opt.qin{animation:oin .5s backwards cubic-bezier(.2,1.2,.4,1)}
 @keyframes oin{from{opacity:0;transform:translateX(-60px) scale(.9)}}
@@ -137,7 +144,7 @@ select{background:#02041c;border:1px solid var(--gold2);border-radius:8px;color:
       <div class="life"><button class="lf" id="f5" title="50:50 (key F)">50:50</button><button class="lf" id="fp" title="Pass (key P)">PASS</button></div>
     </div>
     <div id="mid">
-      <div id="cat"></div><div id="ctx"></div><pre id="code" hidden></pre>
+      <div id="cat"></div><div id="ctx"></div><pre id="code" hidden></pre><div id="diff" hidden></div>
       <div class="hex"><div id="qt">Loading question…</div></div>
     </div>
     <div id="opts"></div>

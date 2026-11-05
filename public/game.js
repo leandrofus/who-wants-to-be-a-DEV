@@ -130,7 +130,7 @@ function renderLadder() {
     d.innerHTML = `<span>${i + 1}</span><span>${fmt(p)}</span>`; $('ladder').append(d);
   });
   $('f5').disabled = f5Used; $('fp').disabled = passUsed;
-  $('meta').textContent = `best ${fmt(rec.best)}` + (srv.theme ? ` · ${srv.theme}` : '') + (srv.target ? ` · ready ${srv.ready}/${srv.target}` : '');
+  $('meta').textContent = `best ${fmt(rec.best)}` + (srv.repo ? ` · ${srv.repo}` : '') + (srv.theme ? ` · ${srv.theme}` : '') + (srv.target ? ` · ready ${srv.ready}/${srv.target}` : '');
 }
 
 function banner(text, ms = 2600) {
@@ -139,10 +139,41 @@ function banner(text, ms = 2600) {
 }
 const CAT = { pr: 'Your PR', lang: 'Language', code: 'Your code', diff: 'Your changes', design: 'Design' };
 
+// Unified-diff text -> two aligned panes (before | after). Plain code stays in a single block.
+function splitDiff(code) {
+  const rows = []; let dels = [], adds = [], marked = false;
+  const flush = () => { for (let i = 0; i < Math.max(dels.length, adds.length); i++) rows.push({ l: dels[i], r: adds[i] }); dels = []; adds = []; };
+  for (const raw of code.split('\n')) {
+    if (/^(\+\+\+|---) |^@@|^diff /.test(raw)) continue;
+    const m = raw[0];
+    if (m === '-') { marked = true; dels.push(raw.slice(1)); }
+    else if (m === '+') { marked = true; adds.push(raw.slice(1)); }
+    else { flush(); const t = m === ' ' ? raw.slice(1) : raw; rows.push({ l: t, r: t, ctx: true }); }
+  }
+  flush();
+  return marked ? rows : null;
+}
+function showCode(code, category) {
+  const rows = (category === 'pr' || category === 'diff') ? splitDiff(code) : null;
+  if (!rows) { $('code').textContent = code; $('code').hidden = false; return; }
+  const d = $('diff'); d.textContent = '';
+  for (const side of ['l', 'r']) {
+    const pane = document.createElement('div'); pane.className = 'pane';
+    const h = document.createElement('div'); h.className = 'ph ' + (side === 'l' ? 'old' : 'new'); h.textContent = side === 'l' ? 'Before' : 'After'; pane.append(h);
+    for (const row of rows) {
+      const ln = document.createElement('div'); const t = row[side];
+      ln.className = 'ln' + (row.ctx ? '' : t === undefined ? ' gap' : side === 'l' ? ' del' : ' add');
+      ln.textContent = t ?? ''; pane.append(ln);
+    }
+    d.append(pane);
+  }
+  d.hidden = false;
+}
+
 async function nextQuestion() {
   locked = true; sel = -1; q = null;
   $('qt').textContent = 'Loading question…'; $('opts').innerHTML = ''; $('exp').textContent = ''; $('exp').className = '';
-  $('code').hidden = true; $('cat').textContent = ''; $('ctx').textContent = '';
+  $('code').hidden = true; $('diff').hidden = true; $('cat').textContent = ''; $('ctx').textContent = '';
   let tries = 0;
   while (true) {
     try {
@@ -155,7 +186,7 @@ async function nextQuestion() {
   $('cat').textContent = `Question ${level + 1} for ${fmt(PRIZES[level])} · ` + [CAT[q.category] || q.category, q.theme, q.file].filter(Boolean).join(' · ');
   $('ctx').textContent = q.context || '';
   $('qt').textContent = q.question;
-  if (q.code) { $('code').textContent = q.code; $('code').hidden = false; }
+  if (q.code) showCode(q.code, q.category);
   q.options.forEach((o, i) => {
     const b = document.createElement('button'); b.className = 'opt';
     b.innerHTML = `<div class="hex"><div><b>${LET[i]}:</b><span></span></div></div>`;
@@ -168,7 +199,7 @@ async function nextQuestion() {
 }
 
 function presentQuestion() {
-  const els = [$('cat'), $('ctx'), $('code'), $('qt').parentElement, ...$('opts').children];
+  const els = [$('cat'), $('ctx'), $('code'), $('diff'), $('qt').parentElement, ...$('opts').children];
   els.forEach((e) => e.classList.remove('qin')); void document.body.offsetWidth; // reinicia la animación
   els.forEach((e) => e.classList.add('qin'));
   [...$('opts').children].forEach((b, i) => { b.style.animationDelay = 0.9 + i * 0.16 + 's'; sfx.optIn(i); });
@@ -204,14 +235,10 @@ async function confirmAnswer() {
     else { await new Promise((r) => setTimeout(r, 2600)); level++; }
   } else {
     shake = 1.2; burst(0xe5334b, 60);
-    const safe = [...SAFE].reverse().find((s) => s < level);
-    const won = safe === undefined ? 0 : PRIZES[safe];
-    rec.best = Math.max(rec.best, won); saveRec();
-    await new Promise((r) => setTimeout(r, 3200));
-    await banner(`You walk away with\n${fmt(won)}`, 3200);
-    level = 0; banked = 0; f5Used = passUsed = false;
+    // A wrong answer is a learning moment, not game over: keep the level and move on to a fresh question.
+    await new Promise((r) => setTimeout(r, 4200));
   }
-  if (level === 0) { renderLadder(); return openThemes(true); }
+  if (good && level === 0) { renderLadder(); return openThemes(true); } // round completed (won the top prize)
   nextQuestion();
 }
 
@@ -433,4 +460,5 @@ function runIntro() {
     el.addEventListener('pointerdown', () => { end(); }); addEventListener('keydown', end);
   });
 }
-renderLadder(); runIntro().then(() => openThemes(true));
+// Start as soon as the intro ends (questions are already being generated); topics stay available with T.
+renderLadder(); runIntro().then(async () => { await pushLang(); beginRound(); });
